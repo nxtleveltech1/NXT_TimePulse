@@ -1,0 +1,183 @@
+generator client {
+  provider   = "prisma-client-js"
+  output     = "../generated/prisma"
+  engineType = "library"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id
+  email        String?
+  orgId        String   @map("org_id")
+  role         String   @default("worker")
+  firstName    String?  @map("first_name")
+  lastName     String?  @map("last_name")
+  phone        String?
+  employeeCode String?  @map("employee_code")
+  status       String   @default("active")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  timesheets         Timesheet[]
+  geologs            Geolog[]
+  approvedTimesheets Timesheet[]     @relation("ApprovedBy")
+  allocations        ProjectAllocation[]
+  auditLogs          AuditLog[]
+  leaveRequests      LeaveRequest[]
+  approvedLeaveRequests LeaveRequest[] @relation("ApprovedLeaveRequests")
+
+  @@map("users")
+}
+
+model LeaveRequest {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  startDate    DateTime  @map("start_date") @db.Date
+  endDate      DateTime  @map("end_date") @db.Date
+  type         String    @default("annual")
+  reason       String?
+  status       String    @default("pending")
+  approvedById String?   @map("approved_by")
+  approvedAt   DateTime? @map("approved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy User?  @relation("ApprovedLeaveRequests", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@map("leave_requests")
+}
+
+model Organization {
+  id       String  @id
+  name     String
+  settings Json?   @default("{}")
+
+  @@map("organizations")
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  orgId       String    @map("org_id")
+  name        String
+  client      String?
+  description String?   @default("")
+  status      String    @default("active")
+  defaultRate Decimal   @default(0) @map("default_rate") @db.Decimal(10, 2)
+  clientRate  Decimal?  @map("client_rate") @db.Decimal(10, 2)
+  budget      Decimal?  @map("budget") @db.Decimal(12, 2)
+  address     String?   @default("")
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  geozones   Geozone[]
+  timesheets Timesheet[]
+  allocations ProjectAllocation[]
+
+  @@map("projects")
+}
+
+model Geozone {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  name        String
+  description String?  @default("")
+  radiusM     Int?     @map("radius_m")
+  color       String?  @default("#4f46e5")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  // geom: geometry(Polygon, 4326) — created via raw migration, queried via raw SQL
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timesheets Timesheet[]
+  geologs   Geolog[]
+
+  @@map("geozones")
+}
+
+model Timesheet {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  projectId        String    @map("project_id")
+  geozoneId        String?   @map("geozone_id")
+  date             String    @db.VarChar(10)
+  clockIn          DateTime  @map("clock_in")
+  clockOut         DateTime? @map("clock_out")
+  durationMinutes  Int       @default(0) @map("duration_minutes")
+  source           String    @default("geofence")
+  status           String    @default("pending")
+  notes            String?   @default("")
+  approvedById     String?   @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+  breakMinutes     Int       @default(0) @map("break_minutes")
+  overtimeMinutes  Int       @default(0) @map("overtime_minutes")
+  isBillable       Boolean   @default(true) @map("is_billable")
+  adjustmentReason String?   @map("adjustment_reason")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  geozone   Geozone? @relation(fields: [geozoneId], references: [id], onDelete: SetNull)
+  approvedBy User?   @relation("ApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@map("timesheets")
+}
+
+model Geolog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  geozoneId  String   @map("geozone_id")
+  eventType  String   @map("event_type")
+  deviceInfo Json?    @map("device_info")
+  createdAt  DateTime @default(now()) @map("created_at")
+  // coords: geometry(Point, 4326) — created via raw migration
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  geozone Geozone @relation(fields: [geozoneId], references: [id], onDelete: Cascade)
+
+  @@map("geologs")
+}
+
+model ProjectAllocation {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  projectId      String    @map("project_id")
+  roleOnProject  String    @map("role_on_project")
+  hourlyRate     Decimal   @default(0) @map("hourly_rate") @db.Decimal(10, 2)
+  startDate      DateTime  @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("project_allocations")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  action       String
+  entityType   String   @map("entity_type")
+  entityId     String   @map("entity_id")
+  details      String?
+  previousValue String? @map("previous_value")
+  newValue     String?  @map("new_value")
+  timestamp    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_log")
+}

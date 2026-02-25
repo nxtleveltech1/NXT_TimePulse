@@ -1,0 +1,207 @@
+openapi: 3.0.3
+info:
+  title: TimePulse API
+  description: Geo-tracked workforce timesheet management
+  version: 1.0.0
+
+servers:
+  - url: /api
+    description: API base
+
+paths:
+  /geoevent:
+    post:
+      summary: Geofence event (entry/exit)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lat, lon, geozoneId, eventType]
+              properties:
+                lat: { type: number }
+                lon: { type: number }
+                geozoneId: { type: string }
+                eventType: { type: string, enum: [entry, exit] }
+                deviceInfo: { type: object }
+      responses:
+        "200": { description: Success }
+        "400": { description: Outside geozone or invalid input }
+        "401": { description: Unauthorized }
+        "429": { description: Rate limit exceeded }
+
+  /projects:
+    get:
+      summary: List projects
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: List of projects }
+    post:
+      summary: Create project
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                client: { type: string }
+                description: { type: string }
+                status: { type: string }
+                defaultRate: { type: number }
+                address: { type: string }
+      responses:
+        "200": { description: Created project }
+
+  /projects/{id}/geozones:
+    get:
+      summary: List geozones for project
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: List of geozones }
+    post:
+      summary: Create geozone
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, polygon]
+              properties:
+                name: { type: string }
+                polygon: { type: array, items: { type: array, items: { type: number } } }
+                description: { type: string }
+                radiusM: { type: number }
+                color: { type: string }
+                isActive: { type: boolean }
+      responses:
+        "200": { description: Created geozone }
+
+  /geozones/{id}:
+    get:
+      summary: Get geozone
+      security: [{ bearerAuth: [] }]
+    patch:
+      summary: Update geozone
+      security: [{ bearerAuth: [] }]
+    delete:
+      summary: Delete geozone
+      security: [{ bearerAuth: [] }]
+
+  /timesheets:
+    get:
+      summary: List timesheets
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: projectId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: List of timesheets }
+    post:
+      summary: Create timesheet (manual)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId]
+              properties:
+                projectId: { type: string }
+                geozoneId: { type: string }
+                clockIn: { type: string, format: date-time }
+                clockOut: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        "200": { description: Created timesheet }
+
+  /timesheets/{id}:
+    get:
+      summary: Get timesheet
+      security: [{ bearerAuth: [] }]
+    patch:
+      summary: Update timesheet (approve/reject/edit)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [pending, approved, rejected, flagged] }
+                clockOut: { type: string, format: date-time }
+                notes: { type: string }
+      responses:
+        "200": { description: Updated timesheet }
+
+  /users:
+    get:
+      summary: List users
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: List of users }
+
+  /allocations:
+    get:
+      summary: List project allocations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: projectId
+          in: query
+          schema: { type: string }
+        - name: userId
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: List of allocations }
+    post:
+      summary: Create allocation
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, projectId, roleOnProject]
+              properties:
+                userId: { type: string }
+                projectId: { type: string }
+                roleOnProject: { type: string }
+                hourlyRate: { type: number }
+                startDate: { type: string, format: date }
+                endDate: { type: string, format: date }
+      responses:
+        "200": { description: Created allocation }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

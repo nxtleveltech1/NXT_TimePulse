@@ -1,0 +1,289 @@
+openapi: 3.1.0
+info:
+  title: NXT TIME PULSE Admin API
+  version: 1.0.0
+  description: Admin-gated API endpoints for GEO TIMESHEET - TIMEPULSE
+
+servers:
+  - url: /api
+    description: API base path
+
+security:
+  - bearerAuth: []
+
+paths:
+  /users/invite:
+    post:
+      summary: Invite user by email (admin/manager only)
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                role: { type: string, enum: [admin, manager, worker] }
+      responses:
+        "200":
+          description: Invitation sent
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: User already member or already invited
+  /users/add:
+    post:
+      summary: Add existing Clerk user by email (admin/manager only)
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                role: { type: string, enum: [admin, manager, worker] }
+      responses:
+        "200":
+          description: User added
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: User not found in Clerk
+        "409":
+          description: User already member
+  /users:
+    get:
+      summary: List users (admin/manager only)
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: List of org users
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/User" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /users/{id}:
+    patch:
+      summary: Update user role/status (admin/manager only)
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdate" }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: User not found
+    delete:
+      summary: Remove user from organization (admin/manager only)
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: User removed
+        "400":
+          description: Cannot remove yourself
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: User not found
+
+  /projects:
+    get:
+      summary: List projects (admin/manager only)
+      tags: [Projects]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: List of projects
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      summary: Create project (admin/manager only)
+      tags: [Projects]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                client: { type: string }
+                description: { type: string }
+                status: { type: string }
+                defaultRate: { type: number }
+      responses:
+        "200":
+          description: Created project
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /audit:
+    get:
+      summary: List audit logs (admin/manager only)
+      tags: [Audit]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: entityType
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Audit log entries
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /financials/summary:
+    get:
+      summary: Financial summary (admin/manager only)
+      tags: [Financials]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Summary data
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /reports/payroll:
+    get:
+      summary: Export payroll CSV (admin/manager only)
+      tags: [Reports]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, nullable: true }
+        firstName: { type: string, nullable: true }
+        lastName: { type: string, nullable: true }
+        role: { type: string }
+        status: { type: string }
+        _count:
+          type: object
+          properties:
+            timesheets: { type: integer }
+            allocations: { type: integer }
+    UserUpdate:
+      type: object
+      properties:
+        role: { type: string, enum: [admin, manager, worker] }
+        status: { type: string, enum: [active, inactive] }
+      minProperties: 1
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        details: { type: object }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: "Unauthorized" }
+    Forbidden:
+      description: Insufficient permissions (requires org:admin or org:manager)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: "Forbidden" }

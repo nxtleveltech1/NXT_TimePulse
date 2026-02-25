@@ -1,0 +1,10 @@
+{
+  "name": "NXT TIME PULSE",
+  "short_name": "NXT TIME PULSE",
+  "description": "Geo-tracked workforce timesheet management",
+  "start_url": "/dashboard/worker",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": []
+}
