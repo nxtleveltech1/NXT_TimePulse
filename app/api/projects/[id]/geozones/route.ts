@@ -92,25 +92,48 @@ export async function POST(
 
   const coords = polygon.map((p) => {
     const arr = Array.isArray(p) ? p : [0, 0]
-    return [Number(arr[0]), Number(arr[1])] as [number, number]
+    const lng = Number(arr[0])
+    const lat = Number(arr[1])
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+      return [0, 0] as [number, number]
+    }
+    return [lng, lat] as [number, number]
   })
-  const wkt = `POLYGON((${coords.map((c) => `${c[0]} ${c[1]}`).join(",")},${coords[0][0]} ${coords[0][1]}))`
+  // Close ring if not already (first === last)
+  const first = coords[0]
+  const last = coords[coords.length - 1]
+  const closed =
+    first[0] === last[0] && first[1] === last[1]
+      ? coords
+      : [...coords, first]
+  const wkt = `POLYGON((${closed.map((c) => `${c[0]} ${c[1]}`).join(",")}))`
 
-  const geozone = await prisma.geozone.create({
-    data: {
-      projectId,
-      name,
-      description: typeof b.description === "string" ? b.description : "",
-      radiusM: typeof b.radiusM === "number" ? b.radiusM : null,
-      color: typeof b.color === "string" ? b.color : "#4f46e5",
-      isActive: typeof b.isActive === "boolean" ? b.isActive : true,
-    },
-  })
+  try {
+    const radiusM =
+      typeof b.radiusM === "number" && Number.isFinite(b.radiusM)
+        ? Math.round(b.radiusM)
+        : null
 
-  await prisma.$executeRaw`
-    UPDATE geozones SET geom = ST_SetSRID(ST_GeomFromText(${wkt}), 4326) WHERE id = ${geozone.id}
-  `
+    const geozone = await prisma.geozone.create({
+      data: {
+        projectId,
+        name,
+        description: typeof b.description === "string" ? b.description : "",
+        radiusM,
+        color: typeof b.color === "string" ? b.color : "#4f46e5",
+        isActive: typeof b.isActive === "boolean" ? b.isActive : true,
+      },
+    })
 
-  const updated = await prisma.geozone.findUnique({ where: { id: geozone.id } })
-  return NextResponse.json(updated ?? geozone)
+    await prisma.$executeRaw`
+      UPDATE geozones SET geom = ST_SetSRID(ST_GeomFromText(${wkt}), 4326) WHERE id = ${geozone.id}
+    `
+
+    const updated = await prisma.geozone.findUnique({ where: { id: geozone.id } })
+    return NextResponse.json(updated ?? geozone)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Database error"
+    console.error("[geozones POST]", e)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }
