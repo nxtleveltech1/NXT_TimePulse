@@ -92,7 +92,7 @@ export function GeozoneForm({ projectId }: { projectId: string }) {
       <CardHeader>
         <CardTitle>Geozone details</CardTitle>
         <CardDescription>
-          Draw the polygon boundary on the map. Use the polygon tool to create a geofence.
+          Search for an address to jump to a location, then use the polygon tool to draw the geofence boundary.
         </CardDescription>
       </CardHeader>
       <CardContent>

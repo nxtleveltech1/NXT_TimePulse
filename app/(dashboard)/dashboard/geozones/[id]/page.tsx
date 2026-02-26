@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
+import { serializeForClient } from "@/lib/serialize"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -36,7 +37,7 @@ export default async function GeozoneEditPage({
         </div>
       </div>
 
-      <GeozoneEditForm geozone={geozone} />
+      <GeozoneEditForm geozone={serializeForClient(geozone)} />
     </div>
   )
 }
