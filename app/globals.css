@@ -131,3 +131,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .min-touch {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

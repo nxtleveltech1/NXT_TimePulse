@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -49,6 +50,7 @@ type FormData = z.infer<typeof schema>
 
 export function GeozoneForm({ projectId }: { projectId: string }) {
   const router = useRouter()
+  const isMobile = useIsMobile()
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -97,7 +99,7 @@ export function GeozoneForm({ projectId }: { projectId: string }) {
   }
 
   return (
-    <Card className="max-w-2xl">
+    <Card className="w-full max-w-2xl">
       <CardHeader>
         <CardTitle>Geozone details</CardTitle>
         <CardDescription>
@@ -179,6 +181,7 @@ export function GeozoneForm({ projectId }: { projectId: string }) {
                 <FormItem>
                   <FormLabel>Polygon</FormLabel>
                   <GeozoneMapEditor
+                    height={isMobile ? 280 : 300}
                     initialCoordinates={(() => {
                       try {
                         const arr = JSON.parse(field.value) as [number, number][]

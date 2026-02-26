@@ -55,7 +55,7 @@ export function UsersTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead className="sticky left-0 z-10 bg-background">Name</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
@@ -67,7 +67,7 @@ export function UsersTable({
         <TableBody>
           {users.map((u) => (
             <TableRow key={u.id}>
-              <TableCell className="font-medium">
+              <TableCell className="sticky left-0 z-10 bg-background font-medium">
                 {[u.firstName, u.lastName].filter(Boolean).join(" ") || "—"}
               </TableCell>
               <TableCell>{u.email ?? "—"}</TableCell>

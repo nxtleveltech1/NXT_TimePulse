@@ -77,7 +77,7 @@ export function AuditContent({ logs: initialLogs }: { logs: Log[] }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Timestamp</TableHead>
+            <TableHead className="sticky left-0 z-10 bg-background">Timestamp</TableHead>
             <TableHead>User</TableHead>
             <TableHead>Action</TableHead>
             <TableHead>Entity</TableHead>
@@ -87,7 +87,7 @@ export function AuditContent({ logs: initialLogs }: { logs: Log[] }) {
         <TableBody>
           {logs.map((l) => (
             <TableRow key={l.id}>
-              <TableCell className="text-muted-foreground text-sm">
+              <TableCell className="sticky left-0 z-10 bg-background text-muted-foreground text-sm">
                 {new Date(l.timestamp).toLocaleString()}
               </TableCell>
               <TableCell>{userName(l.user)}</TableCell>

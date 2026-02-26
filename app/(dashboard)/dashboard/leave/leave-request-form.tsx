@@ -77,7 +77,7 @@ export function LeaveRequestForm() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-md">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="w-full max-w-md space-y-4">
             <FormField
               control={form.control}
               name="startDate"
@@ -85,7 +85,7 @@ export function LeaveRequestForm() {
                 <FormItem>
                   <FormLabel>Start date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input type="date" className="min-h-[44px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -98,7 +98,7 @@ export function LeaveRequestForm() {
                 <FormItem>
                   <FormLabel>End date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input type="date" className="min-h-[44px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -140,7 +140,7 @@ export function LeaveRequestForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit">Submit request</Button>
+            <Button type="submit" size="lg" className="min-h-[44px]">Submit request</Button>
           </form>
         </Form>
       </CardContent>

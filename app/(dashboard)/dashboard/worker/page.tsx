@@ -29,7 +29,7 @@ export default async function WorkerPage() {
   ])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Worker</h1>
         <p className="text-muted-foreground">
@@ -43,17 +43,17 @@ export default async function WorkerPage() {
       />
 
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 md:p-6">
           <CardTitle>Assigned projects</CardTitle>
           <CardDescription>{allocations.length} project(s)</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6 pt-0">
           {allocations.length === 0 ? (
             <p className="text-muted-foreground">No project allocations yet.</p>
           ) : (
             <ul className="space-y-2">
               {allocations.map((a) => (
-                <li key={a.id} className="flex items-center justify-between">
+                <li key={a.id} className="flex min-h-[44px] items-center justify-between py-1">
                   <span>{a.project.name}</span>
                   <Badge variant="secondary">{a.roleOnProject}</Badge>
                 </li>
@@ -64,17 +64,17 @@ export default async function WorkerPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 md:p-6">
           <CardTitle>Recent timesheets</CardTitle>
           <CardDescription>Your last 10 entries</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6 pt-0">
           {recentTimesheets.length === 0 ? (
             <p className="text-muted-foreground">No timesheets yet.</p>
           ) : (
             <ul className="space-y-2">
               {recentTimesheets.map((t) => (
-                <li key={t.id} className="flex items-center justify-between text-sm">
+                <li key={t.id} className="flex min-h-[44px] items-center justify-between py-1 text-sm">
                   <span>{t.date} — {t.project.name}</span>
                   <Badge variant={t.status === "approved" ? "default" : "secondary"}>{t.status}</Badge>
                 </li>
@@ -84,7 +84,7 @@ export default async function WorkerPage() {
         </CardContent>
       </Card>
 
-      <Button asChild variant="outline">
+      <Button asChild variant="outline" size="lg" className="min-h-[44px]">
         <Link href="/dashboard/timesheets">View all timesheets</Link>
       </Button>
     </div>

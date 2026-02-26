@@ -80,7 +80,7 @@ export function ProjectsTable({ projects }: { projects: ProjectWithCount[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
+          <TableHead className="sticky left-0 z-10 bg-background">Name</TableHead>
           <TableHead>Client</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Geozones</TableHead>
@@ -90,7 +90,7 @@ export function ProjectsTable({ projects }: { projects: ProjectWithCount[] }) {
       <TableBody>
         {projects.map((p) => (
           <TableRow key={p.id}>
-            <TableCell className="font-medium">{p.name}</TableCell>
+            <TableCell className="sticky left-0 z-10 bg-background font-medium">{p.name}</TableCell>
             <TableCell>{p.client ?? "—"}</TableCell>
             <TableCell>
               <Badge variant={p.status === "active" ? "default" : "secondary"}>

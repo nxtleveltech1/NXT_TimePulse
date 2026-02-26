@@ -76,23 +76,23 @@ export function ReportsContent({
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-2">
           <Label>From</Label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Input type="date" className="min-h-[44px] md:min-h-0" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label>To</Label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <Input type="date" className="min-h-[44px] md:min-h-0" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
-        <Button onClick={exportPayroll}>
+        <Button onClick={exportPayroll} size="lg" className="min-h-[44px]">
           <Download className="mr-2 h-4 w-4" />
           Export Payroll
         </Button>
-        <Button onClick={exportCsv} variant="outline">
+        <Button onClick={exportCsv} variant="outline" size="lg" className="min-h-[44px]">
           <Download className="mr-2 h-4 w-4" />
           Export CSV
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Hours by project</CardTitle>

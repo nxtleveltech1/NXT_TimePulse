@@ -77,9 +77,9 @@ export function GeozonesTable({
   return (
     <>
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="sticky left-0 z-10 bg-background">Name</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -88,7 +88,7 @@ export function GeozonesTable({
         <TableBody>
           {geozones.map((g) => (
             <TableRow key={g.id}>
-              <TableCell className="font-medium">{g.name}</TableCell>
+              <TableCell className="sticky left-0 z-10 bg-background font-medium">{g.name}</TableCell>
               <TableCell>{g.description ?? "—"}</TableCell>
               <TableCell>
                 <Badge variant={g.isActive ? "default" : "secondary"}>

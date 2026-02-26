@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useCallback, useEffect, useState } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
 import Map from "react-map-gl/mapbox"
 import MapboxDraw from "@mapbox/mapbox-gl-draw"
 import type { MapRef } from "react-map-gl/mapbox"
@@ -37,6 +38,7 @@ export function GeozoneMapEditor({
   const drawRef = useRef<MapboxDraw | null>(null)
   const initialSetRef = useRef(false)
   const cleanupRef = useRef<(() => void) | null>(null)
+  const isMobile = useIsMobile()
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<NominatimResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -88,7 +90,7 @@ export function GeozoneMapEditor({
         trash: true,
       },
     })
-    map.addControl(draw, "top-right")
+    map.addControl(draw, isMobile ? "bottom-right" : "top-right")
     drawRef.current = draw
 
     addInitialPolygon()
@@ -105,9 +107,18 @@ export function GeozoneMapEditor({
       map.removeControl(draw)
       drawRef.current = null
     }
-  }, [addInitialPolygon, emitChange])
+  }, [addInitialPolygon, emitChange, isMobile])
 
   useEffect(() => () => cleanupRef.current?.(), [])
+
+  // Reposition draw controls when isMobile changes
+  useEffect(() => {
+    const map = mapRef.current?.getMap()
+    const draw = drawRef.current
+    if (!map || !draw) return
+    map.removeControl(draw)
+    map.addControl(draw, isMobile ? "bottom-right" : "top-right")
+  }, [isMobile])
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -159,14 +170,14 @@ export function GeozoneMapEditor({
           placeholder="Search address or location..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-10 pl-9 pr-12 rounded-none border-0 focus-visible:ring-0"
+          className="min-h-[44px] h-10 pl-9 pr-12 rounded-none border-0 focus-visible:ring-0 md:h-10 md:min-h-0"
           autoComplete="off"
         />
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+          className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0"
           title="Clear polygon"
           onClick={() => onChange([])}
         >

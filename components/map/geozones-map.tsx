@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useEffect, useState } from "react"
+import { useIsMobile } from "@/hooks/use-mobile"
 import Map, { Source, Layer } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
 
@@ -17,12 +18,14 @@ export type GeozoneWithCoords = {
 export function GeozonesMap({
   geozones: geozonesProp,
   projectId,
-  height = 300,
+  height: heightProp,
 }: {
   geozones?: GeozoneWithCoords[]
   projectId?: string
   height?: number
 }) {
+  const isMobile = useIsMobile()
+  const height = heightProp ?? (isMobile ? 280 : 300)
   const [fetched, setFetched] = useState<GeozoneWithCoords[]>([])
   const geozones = geozonesProp ?? fetched
 

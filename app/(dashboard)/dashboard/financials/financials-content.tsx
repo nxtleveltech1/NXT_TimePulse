@@ -94,13 +94,13 @@ export function FinancialsContent() {
       <div className="flex flex-wrap items-end gap-4">
         <div className="space-y-2">
           <Label>From</Label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Input type="date" className="min-h-[44px] md:min-h-0" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
         <div className="space-y-2">
           <Label>To</Label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <Input type="date" className="min-h-[44px] md:min-h-0" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
-        <Button onClick={exportPnl} variant="outline" disabled={!summary}>
+        <Button onClick={exportPnl} variant="outline" size="lg" className="min-h-[44px]" disabled={!summary}>
           <Download className="mr-2 h-4 w-4" />
           Export P&L
         </Button>
@@ -108,7 +108,7 @@ export function FinancialsContent() {
 
       {summary && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>Billable revenue</CardDescription>
@@ -144,7 +144,7 @@ export function FinancialsContent() {
           </div>
 
           {trend.length > 0 && (
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Revenue vs cost</CardTitle>
@@ -182,7 +182,7 @@ export function FinancialsContent() {
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card>
               <CardHeader>
                 <CardTitle>Top projects by revenue</CardTitle>

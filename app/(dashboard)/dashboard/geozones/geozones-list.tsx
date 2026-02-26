@@ -80,7 +80,7 @@ export function GeozonesList({ geozones }: { geozones: GeozoneWithProject[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Name</TableHead>
+          <TableHead className="sticky left-0 z-10 bg-background">Name</TableHead>
           <TableHead>Project</TableHead>
           <TableHead>Status</TableHead>
           <TableHead className="text-right">Actions</TableHead>
@@ -89,7 +89,7 @@ export function GeozonesList({ geozones }: { geozones: GeozoneWithProject[] }) {
       <TableBody>
         {geozones.map((g) => (
           <TableRow key={g.id}>
-            <TableCell className="font-medium">{g.name}</TableCell>
+            <TableCell className="sticky left-0 z-10 bg-background font-medium">{g.name}</TableCell>
             <TableCell>
               <Link href={`/dashboard/projects/${g.project.id}`} className="text-primary hover:underline">
                 {g.project.name}

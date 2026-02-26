@@ -81,7 +81,7 @@ export function WorkerClock({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="p-4 md:p-6">
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" />
           Clock status
@@ -92,13 +92,14 @@ export function WorkerClock({
             : "Not clocked in"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-4 md:p-6 pt-0">
         {clockedIn && openTimesheet ? (
           <Button
             onClick={manualClockOut}
             disabled={loading}
             variant="destructive"
-            className="w-full"
+            size="lg"
+            className="w-full min-h-[44px]"
           >
             {loading ? "Clocking out..." : "Clock out"}
           </Button>
@@ -119,7 +120,7 @@ export function WorkerClock({
                   <Button
                     key={a.id}
                     variant="outline"
-                    size="sm"
+                    size="touch"
                     disabled={loading}
                     onClick={() => manualClockIn(a.projectId, null)}
                   >

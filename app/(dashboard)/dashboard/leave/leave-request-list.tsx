@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -11,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { toast } from "sonner"
 
 type Request = {
@@ -59,8 +61,56 @@ export function LeaveRequestList({
     return [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id
   }
 
+  const isMobile = useIsMobile()
+
   if (requests.length === 0) {
     return <p className="text-muted-foreground text-sm">No leave requests yet.</p>
+  }
+
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {requests.map((r) => (
+          <Card key={r.id}>
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  {isAdmin && <p className="font-medium">{userName(r.user)}</p>}
+                  <p className="text-sm text-muted-foreground">{r.startDate} – {r.endDate}</p>
+                </div>
+                <Badge
+                  variant={
+                    r.status === "approved"
+                      ? "default"
+                      : r.status === "rejected" || r.status === "cancelled"
+                        ? "destructive"
+                        : "secondary"
+                  }
+                >
+                  {r.status}
+                </Badge>
+              </div>
+              <p className="text-sm capitalize text-muted-foreground">{r.type}</p>
+              {r.status === "pending" && isAdmin && (
+                <div className="flex gap-2 pt-2">
+                  <Button size="touch" variant="default" className="flex-1" onClick={() => updateStatus(r.id, "approved")}>
+                    Approve
+                  </Button>
+                  <Button size="touch" variant="destructive" className="flex-1" onClick={() => updateStatus(r.id, "rejected")}>
+                    Reject
+                  </Button>
+                </div>
+              )}
+              {r.status === "pending" && !isAdmin && r.userId === currentUserId && (
+                <Button size="touch" variant="outline" className="w-full" onClick={() => updateStatus(r.id, "cancelled")}>
+                  Cancel
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
   }
 
   return (

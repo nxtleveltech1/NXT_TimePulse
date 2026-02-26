@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Dialog,
   DialogContent,
@@ -167,11 +169,89 @@ export function TimesheetsTable({
     }
   }
 
+  const isMobile = useIsMobile()
+
   if (timesheets.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
         No timesheets yet.
       </div>
+    )
+  }
+
+  if (isMobile) {
+    return (
+      <>
+        <div className="space-y-3">
+          {table.getRowModel().rows.map((row) => {
+            const r = row.original
+            return (
+              <Card key={row.id}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{r.project.name}</p>
+                      <p className="text-sm text-muted-foreground">{r.date}</p>
+                    </div>
+                    <Badge
+                      variant={
+                        r.status === "approved"
+                          ? "default"
+                          : r.status === "rejected"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
+                      {r.status}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <span>{format(new Date(r.clockIn), "HH:mm")} – {r.clockOut ? format(new Date(r.clockOut), "HH:mm") : "—"}</span>
+                    <span>{Math.floor(r.durationMinutes / 60)}h {r.durationMinutes % 60}m</span>
+                  </div>
+                  {isAdmin && r.status === "pending" && (
+                    <div className="flex gap-2 pt-2">
+                      <Button size="touch" variant="outline" className="flex-1" onClick={() => setDialog({ id: r.id, action: "approve" })}>
+                        Approve
+                      </Button>
+                      <Button size="touch" variant="destructive" className="flex-1" onClick={() => setDialog({ id: r.id, action: "reject" })}>
+                        Reject
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+        <Dialog open={!!dialog} onOpenChange={(o) => !o && setDialog(null)}>
+          <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{dialog?.action === "approve" ? "Approve" : "Reject"} timesheet</DialogTitle>
+          <DialogDescription>
+            Provide a reason for this {dialog?.action}. This will be recorded in the audit log.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-4">
+          <Label htmlFor="reason">Reason</Label>
+          <Textarea
+            id="reason"
+            placeholder="e.g. Verified against site records"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+          <Button
+            onClick={() => dialog && submitStatus(dialog.id, dialog.action === "approve" ? "approved" : "rejected")}
+          >
+            {dialog?.action === "approve" ? "Approve" : "Reject"}
+          </Button>
+        </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     )
   }
 

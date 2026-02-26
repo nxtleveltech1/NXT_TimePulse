@@ -27,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { isAdminOrManager } from "@/lib/auth"
@@ -103,19 +104,24 @@ export default async function DashboardLayout({
         </SidebarContent>
       </Sidebar>
       <main className="flex-1 overflow-auto">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background px-6">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-lg">NXT TIME PULSE</span>
+        <header className="sticky top-0 z-10 flex h-14 min-h-[44px] items-center justify-between border-b bg-background px-4 md:px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <SidebarTrigger className="size-10 shrink-0 md:size-7" />
+            <span className="truncate text-base font-semibold sm:max-w-none md:text-lg" title="NXT TIME PULSE">
+              NXT TIME PULSE
+            </span>
             {isAdmin && (
-              <Badge variant="default" className="gap-1">
+              <Badge variant="default" className="shrink-0 gap-1">
                 <Shield className="h-3 w-3" />
                 Admin
               </Badge>
             )}
           </div>
-          <UserButton afterSignOutUrl="/" />
+          <div className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center">
+            <UserButton afterSignOutUrl="/" />
+          </div>
         </header>
-        <div className="p-6">{children}</div>
+        <div className="p-4 md:p-6">{children}</div>
       </main>
     </div>
     </SidebarProvider>

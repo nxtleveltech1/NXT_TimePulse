@@ -59,9 +59,9 @@ export function AllocationsTable({
   return (
     <>
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>User</TableHead>
+      <TableHeader>
+        <TableRow>
+            <TableHead className="sticky left-0 z-10 bg-background">User</TableHead>
             <TableHead>Project</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Rate</TableHead>
@@ -72,8 +72,8 @@ export function AllocationsTable({
         </TableHeader>
         <TableBody>
           {allocations.map((a) => (
-            <TableRow key={a.id}>
-              <TableCell className="font-medium">
+          <TableRow key={a.id}>
+            <TableCell className="sticky left-0 z-10 bg-background font-medium">
                 {a.user
                   ? [a.user.firstName, a.user.lastName].filter(Boolean).join(" ") || a.user.email || a.userId
                   : users.find((u) => u.id === a.userId)
