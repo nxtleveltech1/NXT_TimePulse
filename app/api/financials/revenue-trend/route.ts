@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
-import { getOvertimeMultiplier } from "@/lib/payroll"
+import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
 import { decimalToNumber } from "@/lib/serialize"
 
 export async function GET(req: Request) {
@@ -17,7 +17,8 @@ export async function GET(req: Request) {
   const to = searchParams.get("to") ?? new Date().toISOString().split("T")[0]
   const groupBy = searchParams.get("groupBy") ?? "month"
 
-  const timesheets = await prisma.timesheet.findMany({
+  const [timesheets, allocations, overtimePolicy] = await Promise.all([
+    prisma.timesheet.findMany({
     where: {
       date: { gte: from, lte: to },
       project: { orgId },
@@ -25,16 +26,16 @@ export async function GET(req: Request) {
     include: {
       project: { select: { id: true, name: true, defaultRate: true, clientRate: true } },
     },
-  })
-
-  const allocations = await prisma.projectAllocation.findMany({
+  }),
+    prisma.projectAllocation.findMany({
     where: {
-      userId: { in: [...new Set(timesheets.map((t) => t.userId))] },
-      projectId: { in: [...new Set(timesheets.map((t) => t.projectId))] },
+      project: { orgId },
       isActive: true,
     },
     select: { userId: true, projectId: true, hourlyRate: true },
-  })
+  }),
+    getOvertimePolicy(orgId),
+  ])
   const allocMap = new Map<string, number>()
   for (const a of allocations) {
     allocMap.set(`${a.userId}:${a.projectId}`, decimalToNumber(a.hourlyRate))
@@ -59,7 +60,7 @@ export async function GET(req: Request) {
     const key = periodKey(t.date)
     const clientRate = decimalToNumber((t.project as { clientRate?: unknown }).clientRate) || decimalToNumber(t.project.defaultRate)
     const baseRate = allocMap.get(`${t.userId}:${t.projectId}`) ?? decimalToNumber(t.project.defaultRate)
-    const mult = getOvertimeMultiplier(t.date)
+    const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60
     const isBillable = (t as { isBillable?: boolean }).isBillable !== false
 

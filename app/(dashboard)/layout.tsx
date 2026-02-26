@@ -13,6 +13,7 @@ import {
   FileText,
   ScrollText,
   Shield,
+  Wallet,
 } from "lucide-react"
 export const dynamic = "force-dynamic"
 
@@ -41,6 +42,7 @@ const mainNavItems = [
 
 const adminNavItems = [
   { href: "/dashboard/users", label: "Users", icon: Users },
+  { href: "/dashboard/resources", label: "Resources", icon: Wallet },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/financials", label: "Financials", icon: FileText },
   { href: "/dashboard/audit", label: "Audit", icon: ScrollText },

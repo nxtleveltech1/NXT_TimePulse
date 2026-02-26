@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
-import { getOvertimeMultiplier } from "@/lib/payroll"
+import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
 import { decimalToNumber } from "@/lib/serialize"
 
 export async function GET(req: Request) {
@@ -27,24 +27,25 @@ export async function GET(req: Request) {
   }
   if (userId) where.userId = userId
 
-  const timesheets = await prisma.timesheet.findMany({
+  const [timesheets, allocations, overtimePolicy] = await Promise.all([
+    prisma.timesheet.findMany({
     where,
     include: {
       user: { select: { id: true, employeeCode: true, firstName: true, lastName: true } },
       project: { select: { id: true, name: true, defaultRate: true } },
     },
     orderBy: [{ date: "asc" }, { clockIn: "asc" }],
-  })
-
+  }),
+    prisma.projectAllocation.findMany({
+      where: {
+        project: { orgId },
+        isActive: true,
+      },
+      select: { userId: true, projectId: true, hourlyRate: true },
+    }),
+    getOvertimePolicy(orgId),
+  ])
   const allocationMap = new Map<string, number>()
-  const allocations = await prisma.projectAllocation.findMany({
-    where: {
-      userId: { in: [...new Set(timesheets.map((t) => t.userId))] },
-      projectId: { in: [...new Set(timesheets.map((t) => t.projectId))] },
-      isActive: true,
-    },
-    select: { userId: true, projectId: true, hourlyRate: true },
-  })
   for (const a of allocations) {
     allocationMap.set(`${a.userId}:${a.projectId}`, decimalToNumber(a.hourlyRate))
   }
@@ -69,7 +70,7 @@ export async function GET(req: Request) {
   for (const t of timesheets) {
     const baseRate =
       allocationMap.get(`${t.userId}:${t.projectId}`) ?? decimalToNumber(t.project.defaultRate)
-    const mult = getOvertimeMultiplier(t.date)
+    const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const effectiveRate = baseRate * mult
     const hours = t.durationMinutes / 60
     const amount = hours * effectiveRate

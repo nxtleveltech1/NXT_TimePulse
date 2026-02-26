@@ -17,7 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Pencil, MoreHorizontal, UserMinus } from "lucide-react"
+import Link from "next/link"
+import { Pencil, MoreHorizontal, UserMinus, Wallet } from "lucide-react"
 import { UserEditDialog } from "./user-edit-dialog"
 import { UserRemoveDialog } from "./user-remove-dialog"
 
@@ -83,6 +84,12 @@ export function UsersTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href={`/dashboard/resources/users/${u.id}`}>
+                        <Wallet className="mr-2 h-4 w-4" />
+                        Manage rates
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setEditingUser(u)}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Edit role/status

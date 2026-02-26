@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       description: typeof b.description === "string" ? b.description : "",
       status: typeof b.status === "string" ? b.status : "active",
       defaultRate: typeof b.defaultRate === "number" ? b.defaultRate : 0,
+      clientRate: typeof b.clientRate === "number" ? b.clientRate : null,
       address: typeof b.address === "string" ? b.address : "",
       startDate: b.startDate ? new Date(b.startDate as string) : null,
       endDate: b.endDate ? new Date(b.endDate as string) : null,

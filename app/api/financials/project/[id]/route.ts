@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
-import { getOvertimeMultiplier } from "@/lib/payroll"
+import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
 import { decimalToNumber } from "@/lib/serialize"
 
 export async function GET(
@@ -26,21 +26,22 @@ export async function GET(
   const from = searchParams.get("from") ?? new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]
   const to = searchParams.get("to") ?? new Date().toISOString().split("T")[0]
 
-  const timesheets = await prisma.timesheet.findMany({
-    where: { projectId: id, date: { gte: from, lte: to } },
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
-    },
-  })
-
-  const allocations = await prisma.projectAllocation.findMany({
-    where: {
-      projectId: id,
-      userId: { in: [...new Set(timesheets.map((t) => t.userId))] },
-      isActive: true,
-    },
-    select: { userId: true, hourlyRate: true },
-  })
+  const [timesheets, allocations, overtimePolicy] = await Promise.all([
+    prisma.timesheet.findMany({
+      where: { projectId: id, date: { gte: from, lte: to } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+      },
+    }),
+    prisma.projectAllocation.findMany({
+      where: {
+        projectId: id,
+        isActive: true,
+      },
+      select: { userId: true, hourlyRate: true },
+    }),
+    getOvertimePolicy(orgId),
+  ])
   const allocMap = new Map(allocations.map((a) => [a.userId, decimalToNumber(a.hourlyRate)]))
 
   const clientRate = decimalToNumber((project as { clientRate?: unknown }).clientRate) || decimalToNumber(project.defaultRate)
@@ -51,7 +52,7 @@ export async function GET(
 
   for (const t of timesheets) {
     const baseRate = allocMap.get(t.userId) ?? decimalToNumber(project.defaultRate)
-    const mult = getOvertimeMultiplier(t.date)
+    const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60
     const isBillable = (t as { isBillable?: boolean }).isBillable !== false
     if (isBillable) revenue += hours * clientRate

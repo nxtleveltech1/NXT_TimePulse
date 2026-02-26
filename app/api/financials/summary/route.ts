@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
-import { getOvertimeMultiplier } from "@/lib/payroll"
+import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
 import { decimalToNumber } from "@/lib/serialize"
 
 export async function GET(req: Request) {
@@ -16,25 +16,26 @@ export async function GET(req: Request) {
   const from = searchParams.get("from") ?? new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]
   const to = searchParams.get("to") ?? new Date().toISOString().split("T")[0]
 
-  const timesheets = await prisma.timesheet.findMany({
-    where: {
-      date: { gte: from, lte: to },
-      project: { orgId },
-    },
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
-      project: { select: { id: true, name: true, defaultRate: true, clientRate: true } },
-    },
-  })
-
-  const allocations = await prisma.projectAllocation.findMany({
-    where: {
-      userId: { in: [...new Set(timesheets.map((t) => t.userId))] },
-      projectId: { in: [...new Set(timesheets.map((t) => t.projectId))] },
-      isActive: true,
-    },
-    select: { userId: true, projectId: true, hourlyRate: true },
-  })
+  const [timesheets, allocations, overtimePolicy] = await Promise.all([
+    prisma.timesheet.findMany({
+      where: {
+        date: { gte: from, lte: to },
+        project: { orgId },
+      },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+        project: { select: { id: true, name: true, defaultRate: true, clientRate: true } },
+      },
+    }),
+    prisma.projectAllocation.findMany({
+      where: {
+        project: { orgId },
+        isActive: true,
+      },
+      select: { userId: true, projectId: true, hourlyRate: true },
+    }),
+    getOvertimePolicy(orgId),
+  ])
   const allocMap = new Map<string, number>()
   for (const a of allocations) {
     allocMap.set(`${a.userId}:${a.projectId}`, decimalToNumber(a.hourlyRate))
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
   for (const t of timesheets) {
     const clientRate = decimalToNumber((t.project as { clientRate?: unknown }).clientRate) || decimalToNumber(t.project.defaultRate)
     const baseRate = allocMap.get(`${t.userId}:${t.projectId}`) ?? decimalToNumber(t.project.defaultRate)
-    const mult = getOvertimeMultiplier(t.date)
+    const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60
     const isBillable = (t as { isBillable?: boolean }).isBillable !== false
 

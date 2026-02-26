@@ -32,6 +32,7 @@ const schema = z.object({
   address: z.string().optional(),
   status: z.enum(["active", "completed", "on_hold", "archived"]).default("active"),
   defaultRate: z.coerce.number().min(0).default(0),
+  clientRate: z.coerce.number().min(0).optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -47,6 +48,7 @@ export function ProjectForm({ orgId }: { orgId: string }) {
       address: "",
       status: "active",
       defaultRate: 0,
+      clientRate: undefined,
     },
   })
 
@@ -139,6 +141,33 @@ export function ProjectForm({ orgId }: { orgId: string }) {
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Fallback when no allocation rate exists
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="clientRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Client rate ($/hr)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={(e) =>
+                        field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)
+                      }
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Billable rate for revenue; defaults to default rate if empty
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

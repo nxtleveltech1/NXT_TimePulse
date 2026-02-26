@@ -9,6 +9,7 @@ import { ArrowLeft, Plus, MapPin } from "lucide-react"
 import { GeozonesTable } from "./geozones-table"
 import { GeozonesMap } from "@/components/map/geozones-map"
 import { ProjectFinancials } from "./project-financials"
+import { ProjectTeam } from "./project-team"
 
 export default async function ProjectDetailPage({
   params,
@@ -19,12 +20,39 @@ export default async function ProjectDetailPage({
   const { orgId } = await auth()
   const org = orgId ?? "org_default"
 
-  const project = await prisma.project.findFirst({
-    where: { id, orgId: org },
-    include: { geozones: true },
-  })
+  const [project, allocations, projects, users] = await Promise.all([
+    prisma.project.findFirst({
+      where: { id, orgId: org },
+      include: { geozones: true },
+    }),
+    prisma.projectAllocation.findMany({
+      where: { projectId: id, project: { orgId: org } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: { startDate: "desc" },
+    }),
+    prisma.project.findMany({
+      where: { orgId: org },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.user.findMany({
+      where: { orgId: org },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: { firstName: "asc" },
+    }),
+  ])
 
   if (!project) notFound()
+
+  const serializedAllocations = allocations.map((a) => ({
+    ...a,
+    hourlyRate: Number(a.hourlyRate),
+    startDate: a.startDate.toISOString().slice(0, 10),
+    endDate: a.endDate ? a.endDate.toISOString().slice(0, 10) : null,
+  }))
 
   return (
     <div className="space-y-6">
@@ -53,6 +81,13 @@ export default async function ProjectDetailPage({
       </Card>
 
       <ProjectFinancials projectId={id} />
+
+      <ProjectTeam
+        projectId={id}
+        initialAllocations={serializedAllocations}
+        projects={projects}
+        users={users}
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

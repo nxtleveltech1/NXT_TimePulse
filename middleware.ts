@@ -17,6 +17,8 @@ const isAdminRoute = createRouteMatcher([
   "/dashboard/reports/(.*)",
   "/dashboard/financials",
   "/dashboard/financials/(.*)",
+  "/dashboard/resources",
+  "/dashboard/resources/(.*)",
   "/dashboard/audit",
   "/dashboard/audit/(.*)",
 ])

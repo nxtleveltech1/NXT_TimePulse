@@ -60,6 +60,18 @@ export async function POST(req: Request) {
     )
   }
 
+  const org = orgId ?? "org_default"
+  const [project, user] = await Promise.all([
+    prisma.project.findFirst({ where: { id: projectId, orgId: org }, select: { id: true } }),
+    prisma.user.findFirst({ where: { id: userIdParam, orgId: org }, select: { id: true } }),
+  ])
+  if (!project || !user) {
+    return NextResponse.json(
+      { error: "Project or user not found in organization" },
+      { status: 404 }
+    )
+  }
+
   const allocation = await prisma.projectAllocation.create({
     data: {
       userId: userIdParam,
