@@ -61,7 +61,7 @@ export function GeozonesMap({
   }, [geozones])
 
   const center = useMemo(() => {
-    if (!geozones?.length) return { lng: -74.006, lat: 40.7128 }
+    if (!geozones?.length) return { lng: 18.4241, lat: -33.9249 }
     const first = geozones[0].coordinates[0]
     return { lng: first[0], lat: first[1] }
   }, [geozones])

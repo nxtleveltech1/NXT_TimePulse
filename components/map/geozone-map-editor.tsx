@@ -184,8 +184,8 @@ export function GeozoneMapEditor({
         ref={mapRef}
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={{
-          longitude: initialCoordinates?.[0]?.[0] ?? -74.006,
-          latitude: initialCoordinates?.[0]?.[1] ?? 40.7128,
+          longitude: initialCoordinates?.[0]?.[0] ?? 18.4241,
+          latitude: initialCoordinates?.[0]?.[1] ?? -33.9249,
           zoom: 14,
         }}
         style={{ width: "100%", height }}
