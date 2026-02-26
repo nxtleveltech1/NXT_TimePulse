@@ -42,7 +42,7 @@ const schema = z.object({
     } catch {
       return false
     }
-  }, "Polygon: JSON array of [lng, lat] with at least 4 points, e.g. [[18.41,-33.93],[18.43,-33.93],[18.43,-33.91],[18.41,-33.91],[18.41,-33.93]]"),
+  }, "Polygon: JSON array of [lng, lat] with at least 4 points, e.g. [[18.69,-33.96],[18.71,-33.96],[18.71,-33.95],[18.69,-33.95],[18.69,-33.96]]"),
 })
 
 type FormData = z.infer<typeof schema>
@@ -57,7 +57,7 @@ export function GeozoneForm({ projectId }: { projectId: string }) {
       radiusM: 150,
       color: "#4f46e5",
       isActive: true,
-      polygon: "[[18.4141,-33.9349],[18.4341,-33.9349],[18.4341,-33.9149],[18.4141,-33.9149],[18.4141,-33.9349]]",
+      polygon: "[[18.69485,-33.97386],[18.71485,-33.97386],[18.71485,-33.95386],[18.69485,-33.95386],[18.69485,-33.97386]]",
     },
   })
 

@@ -11,6 +11,8 @@ import "mapbox-gl/dist/mapbox-gl.css"
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css"
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+// Default: Unit 6 ADF Centre, Vonkel Street, Saxenburg Park 2, Blackheath (NXT Level Tech)
+const DEFAULT_CENTER = { lng: 18.70485, lat: -33.96386 } as const
 
 type GeocodingFeature = {
   id: string
@@ -184,8 +186,8 @@ export function GeozoneMapEditor({
         ref={mapRef}
         mapboxAccessToken={MAPBOX_TOKEN}
         initialViewState={{
-          longitude: initialCoordinates?.[0]?.[0] ?? 18.4241,
-          latitude: initialCoordinates?.[0]?.[1] ?? -33.9249,
+          longitude: initialCoordinates?.[0]?.[0] ?? DEFAULT_CENTER.lng,
+          latitude: initialCoordinates?.[0]?.[1] ?? DEFAULT_CENTER.lat,
           zoom: 14,
         }}
         style={{ width: "100%", height }}
