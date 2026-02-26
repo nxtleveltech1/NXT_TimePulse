@@ -72,25 +72,50 @@ export async function POST(req: Request) {
     )
   }
 
-  const allocation = await prisma.projectAllocation.create({
-    data: {
-      userId: userIdParam,
-      projectId,
-      roleOnProject,
-      startDate,
-      endDate,
-      hourlyRate,
-      isActive: true,
-    },
+  const existing = await prisma.projectAllocation.findUnique({
+    where: { userId_projectId: { userId: userIdParam, projectId } },
+    select: { id: true },
   })
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      action: "allocation.created",
-      entityType: "project_allocation",
-      entityId: allocation.id,
-      details: `Allocation created: user ${userIdParam} → project ${projectId}`,
-    },
-  })
-  return NextResponse.json(allocation)
+  if (existing) {
+    return NextResponse.json(
+      { error: "This user is already allocated to this project. Edit the existing allocation instead." },
+      { status: 409 }
+    )
+  }
+
+  try {
+    const allocation = await prisma.projectAllocation.create({
+      data: {
+        userId: userIdParam,
+        projectId,
+        roleOnProject,
+        startDate,
+        endDate,
+        hourlyRate,
+        isActive: true,
+      },
+    })
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: "allocation.created",
+        entityType: "project_allocation",
+        entityId: allocation.id,
+        details: `Allocation created: user ${userIdParam} → project ${projectId}`,
+      },
+    }).catch(() => {})
+    return NextResponse.json(allocation)
+  } catch (e) {
+    const err = e as { code?: string }
+    if (err.code === "P2002") {
+      return NextResponse.json(
+        { error: "This user is already allocated to this project. Edit the existing allocation instead." },
+        { status: 409 }
+      )
+    }
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to create allocation" },
+      { status: 500 }
+    )
+  }
 }
