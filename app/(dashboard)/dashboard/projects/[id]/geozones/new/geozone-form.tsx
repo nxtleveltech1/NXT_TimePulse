@@ -77,8 +77,17 @@ export function GeozoneForm({ projectId }: { projectId: string }) {
         }),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? "Failed to create geozone")
+        let errMsg = "Failed to create geozone"
+        try {
+          const text = await res.text()
+          if (text) {
+            const err = JSON.parse(text) as { error?: string }
+            errMsg = err.error ?? errMsg
+          }
+        } catch {
+          // empty or invalid response body
+        }
+        throw new Error(errMsg)
       }
       toast.success("Geozone created")
       router.push(`/dashboard/projects/${projectId}`)

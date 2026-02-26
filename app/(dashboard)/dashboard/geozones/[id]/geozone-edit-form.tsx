@@ -89,8 +89,17 @@ export function GeozoneEditForm({ geozone }: { geozone: Geozone }) {
         body: JSON.stringify(body),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? "Failed to update geozone")
+        let errMsg = "Failed to update geozone"
+        try {
+          const text = await res.text()
+          if (text) {
+            const err = JSON.parse(text) as { error?: string }
+            errMsg = err.error ?? errMsg
+          }
+        } catch {
+          // empty or invalid response body
+        }
+        throw new Error(errMsg)
       }
       toast.success("Geozone updated")
       router.push(`/dashboard/projects/${geozone.projectId}`)
