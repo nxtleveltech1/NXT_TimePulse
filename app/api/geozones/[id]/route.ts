@@ -87,6 +87,17 @@ export async function DELETE(
   }
 
   const { id } = await params
+  const geozone = await prisma.geozone.findUnique({ where: { id } })
+  if (!geozone) return NextResponse.json({ error: "Not found" }, { status: 404 })
   await prisma.geozone.delete({ where: { id } })
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: "geozone.deleted",
+      entityType: "geozone",
+      entityId: id,
+      details: `Geozone deleted: ${geozone.name}`,
+    },
+  })
   return NextResponse.json({ success: true })
 }
