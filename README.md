@@ -31,6 +31,7 @@ DATABASE_URL=postgresql://...
 DIRECT_URL=postgresql://...
 
 # Mapbox (optional, for geozone map drawing)
+# Address search uses OpenStreetMap Nominatim (free, no key)
 NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=
 ```
 
@@ -95,7 +96,7 @@ fetch('https://yourapp.com/api/geoevent', {
 ### Deploy (Vercel)
 
 1. Connect repo
-2. Add env vars: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `DIRECT_URL`
+2. Add env vars: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (optional, for geozone maps)
 3. Deploy
 
 ### Neon

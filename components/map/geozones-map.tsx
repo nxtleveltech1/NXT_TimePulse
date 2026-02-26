@@ -5,6 +5,7 @@ import Map, { Source, Layer } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
+const DEFAULT_CENTER = { lng: 18.70485, lat: -33.96386 }
 
 export type GeozoneWithCoords = {
   id: string
@@ -61,7 +62,7 @@ export function GeozonesMap({
   }, [geozones])
 
   const center = useMemo(() => {
-    if (!geozones?.length) return { lng: 18.70485, lat: -33.96386 }
+    if (!geozones?.length) return DEFAULT_CENTER
     const first = geozones[0].coordinates[0]
     return { lng: first[0], lat: first[1] }
   }, [geozones])
@@ -69,7 +70,7 @@ export function GeozonesMap({
   if (!MAPBOX_TOKEN) {
     return (
       <div
-        className="flex items-center justify-center rounded-lg border bg-muted/50"
+        className="flex justify-center items-center rounded-lg border bg-muted/50"
         style={{ height }}
       >
         <p className="text-sm text-muted-foreground">
@@ -82,7 +83,7 @@ export function GeozonesMap({
   if (!geojson || geojson.features.length === 0) {
     return (
       <div
-        className="flex items-center justify-center rounded-lg border bg-muted/50"
+        className="flex justify-center items-center rounded-lg border bg-muted/50"
         style={{ height }}
       >
         <p className="text-sm text-muted-foreground">No geozones to display</p>

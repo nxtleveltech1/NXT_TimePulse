@@ -4,20 +4,22 @@ import { useRef, useCallback, useEffect, useState } from "react"
 import Map from "react-map-gl/mapbox"
 import MapboxDraw from "@mapbox/mapbox-gl-draw"
 import type { MapRef } from "react-map-gl/mapbox"
-import { Search, MapPin } from "lucide-react"
+import { Search, MapPin, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import "mapbox-gl/dist/mapbox-gl.css"
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css"
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN
 // Default: Unit 6 ADF Centre, Vonkel Street, Saxenburg Park 2, Blackheath (NXT Level Tech)
-const DEFAULT_CENTER = { lng: 18.70485, lat: -33.96386 } as const
+const DEFAULT_CENTER = { lng: 18.70485, lat: -33.96386 }
 
-type GeocodingFeature = {
-  id: string
-  place_name: string
-  center: [number, number]
+type NominatimResult = {
+  place_id: number
+  display_name: string
+  lat: string
+  lon: string
 }
 
 type Coord = [number, number]
@@ -36,7 +38,7 @@ export function GeozoneMapEditor({
   const initialSetRef = useRef(false)
   const cleanupRef = useRef<(() => void) | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<GeocodingFeature[]>([])
+  const [searchResults, setSearchResults] = useState<NominatimResult[]>([])
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -108,7 +110,7 @@ export function GeozoneMapEditor({
   useEffect(() => () => cleanupRef.current?.(), [])
 
   useEffect(() => {
-    if (!searchQuery.trim() || !MAPBOX_TOKEN) {
+    if (!searchQuery.trim()) {
       setSearchResults([])
       return
     }
@@ -117,16 +119,17 @@ export function GeozoneMapEditor({
       setSearching(true)
       try {
         const res = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchQuery)}.json?access_token=${MAPBOX_TOKEN}&limit=5`
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=za&limit=5`,
+          { headers: { "Accept-Language": "en" } }
         )
-        const data = (await res.json()) as { features?: GeocodingFeature[] }
-        setSearchResults(data.features ?? [])
+        const data = (await res.json()) as NominatimResult[]
+        setSearchResults(data)
       } catch {
         setSearchResults([])
       } finally {
         setSearching(false)
       }
-    }, 300)
+    }, 400)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
@@ -141,7 +144,7 @@ export function GeozoneMapEditor({
 
   if (!MAPBOX_TOKEN) {
     return (
-      <div className="flex items-center justify-center rounded-lg border bg-muted/50" style={{ height }}>
+      <div className="flex justify-center items-center rounded-lg border bg-muted/50" style={{ height }}>
         <p className="text-sm text-muted-foreground">Set NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to enable map</p>
       </div>
     )
@@ -156,9 +159,19 @@ export function GeozoneMapEditor({
           placeholder="Search address or location..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-10 pl-9 pr-3 rounded-none border-0 focus-visible:ring-0"
+          className="h-10 pl-9 pr-12 rounded-none border-0 focus-visible:ring-0"
           autoComplete="off"
         />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
+          title="Clear polygon"
+          onClick={() => onChange([])}
+        >
+          <Trash2 className="size-4" />
+        </Button>
         {(searchResults.length > 0 || searching) && (
           <div className="absolute top-full left-0 right-0 z-50 mt-0 max-h-48 overflow-auto border bg-popover shadow-md">
             {searching ? (
@@ -166,16 +179,16 @@ export function GeozoneMapEditor({
             ) : (
               searchResults.map((f) => (
                 <button
-                  key={f.id}
+                  key={f.place_id}
                   type="button"
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent",
                     "transition-colors"
                   )}
-                  onClick={() => flyToLocation(f.center[0], f.center[1])}
+                  onClick={() => flyToLocation(parseFloat(f.lon), parseFloat(f.lat))}
                 >
                   <MapPin className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{f.place_name}</span>
+                  <span className="truncate">{f.display_name}</span>
                 </button>
               ))
             )}
