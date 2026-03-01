@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { UserButton } from "@clerk/nextjs"
 import Link from "next/link"
+import Image from "next/image"
 import {
   LayoutDashboard,
   FolderKanban,
@@ -63,7 +64,18 @@ export default async function DashboardLayout({
         <Sidebar>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>NXT TIME PULSE</SidebarGroupLabel>
+            <SidebarGroupLabel asChild>
+              <Link href="/dashboard" className="flex items-center py-2">
+                <Image
+                  src="/timepulse-logo.png"
+                  alt="NXT TIME PULSE"
+                  width={140}
+                  height={40}
+                  className="h-8 w-auto object-contain"
+                  priority
+                />
+              </Link>
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {mainNavItems.map((item) => (
@@ -107,9 +119,16 @@ export default async function DashboardLayout({
         <header className="sticky top-0 z-10 flex h-14 min-h-[44px] items-center justify-between border-b bg-background px-4 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <SidebarTrigger className="size-10 shrink-0 md:size-7" />
-            <span className="truncate text-base font-semibold sm:max-w-none md:text-lg" title="NXT TIME PULSE">
-              NXT TIME PULSE
-            </span>
+            <Link href="/dashboard" className="flex items-center shrink-0">
+              <Image
+                src="/timepulse-logo.png"
+                alt="NXT TIME PULSE"
+                width={120}
+                height={34}
+                className="h-7 w-auto object-contain"
+                priority
+              />
+            </Link>
             {isAdmin && (
               <Badge variant="default" className="shrink-0 gap-1">
                 <Shield className="h-3 w-3" />
