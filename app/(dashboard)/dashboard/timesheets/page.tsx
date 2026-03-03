@@ -2,8 +2,13 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { isAdminOrManager } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { TimesheetsTable } from "./timesheets-table"
 import { TimesheetsViewToggle } from "./timesheets-view-toggle"
+import { ManualEntryDialog } from "@/components/time-capture/manual-entry-dialog"
+import { serializeForClient } from "@/lib/serialize"
+import Link from "next/link"
+import { LayoutGrid } from "lucide-react"
 
 export default async function TimesheetsPage({
   searchParams,
@@ -21,31 +26,50 @@ export default async function TimesheetsPage({
   if (!isAdmin && userId) where.userId = userId
   if (status) where.status = status
 
-  const timesheets = await prisma.timesheet.findMany({
-    where,
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
-      project: { select: { id: true, name: true } },
-      geozone: { select: { id: true, name: true } },
-    },
-    orderBy: [{ date: "desc" }, { clockIn: "desc" }],
-    take: 100,
-  })
+  const [timesheets, allocations] = await Promise.all([
+    prisma.timesheet.findMany({
+      where,
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+        project: { select: { id: true, name: true } },
+        geozone: { select: { id: true, name: true } },
+      },
+      orderBy: [{ date: "desc" }, { clockIn: "desc" }],
+      take: 100,
+    }),
+    userId
+      ? prisma.projectAllocation.findMany({
+          where: { userId, isActive: true },
+          include: { project: { select: { id: true, name: true } } },
+        })
+      : Promise.resolve([]),
+  ])
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">Timesheets</h1>
-          {isAdmin && (
-            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-              Admin: Approve/Reject
-            </span>
-          )}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold">Timesheets</h1>
+            {isAdmin && (
+              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                Admin: Approve/Reject
+              </span>
+            )}
+          </div>
+          <p className="text-muted-foreground">
+            {isAdmin ? "View and approve timesheet entries" : "View your timesheets"}
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          {isAdmin ? "View and approve timesheet entries" : "View your timesheets"}
-        </p>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link href="/dashboard/timesheets/weekly">
+              <LayoutGrid className="h-4 w-4" />
+              Weekly
+            </Link>
+          </Button>
+          <ManualEntryDialog allocations={serializeForClient(allocations)} />
+        </div>
       </div>
 
       <Card>
@@ -55,7 +79,7 @@ export default async function TimesheetsPage({
         </CardHeader>
         <CardContent>
           <TimesheetsViewToggle
-            tableView={<TimesheetsTable timesheets={timesheets} isAdmin={isAdmin} />}
+            tableView={<TimesheetsTable timesheets={serializeForClient(timesheets)} isAdmin={isAdmin} />}
             entries={timesheets.map((t) => ({
               id: t.id,
               date: t.date,

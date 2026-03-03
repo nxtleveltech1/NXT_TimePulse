@@ -6,6 +6,7 @@ import { WorkerClock } from "./worker-clock"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { serializeForClient } from "@/lib/serialize"
+import { ManualEntryDialog } from "@/components/time-capture/manual-entry-dialog"
 
 export default async function WorkerPage() {
   const { userId } = await auth()
@@ -19,27 +20,43 @@ export default async function WorkerPage() {
     prisma.timesheet.findFirst({
       where: { userId, clockOut: null },
       include: { project: { select: { name: true } }, geozone: { select: { name: true } } },
+      orderBy: { clockIn: "desc" },
     }),
     prisma.timesheet.findMany({
       where: { userId },
-      include: { project: { select: { name: true } } },
+      include: { project: { select: { id: true, name: true } } },
       orderBy: { date: "desc" },
       take: 10,
     }),
   ])
 
+  const lastCompletedTimesheet = recentTimesheets.find(
+    (t) => t.clockOut !== null && t.id !== openTimesheet?.id
+  ) ?? null
+
   return (
     <div className="space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Worker</h1>
-        <p className="text-muted-foreground">
-          Your assigned projects and timesheet
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Worker</h1>
+          <p className="text-muted-foreground">
+            Your assigned projects and timesheet
+          </p>
+        </div>
+        <ManualEntryDialog allocations={serializeForClient(allocations)} />
       </div>
 
       <WorkerClock
         openTimesheet={serializeForClient(openTimesheet)}
         allocations={serializeForClient(allocations)}
+        lastTimesheet={
+          lastCompletedTimesheet
+            ? serializeForClient({
+                projectId: lastCompletedTimesheet.projectId,
+                project: lastCompletedTimesheet.project,
+              })
+            : undefined
+        }
       />
 
       <Card>

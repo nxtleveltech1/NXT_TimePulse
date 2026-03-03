@@ -61,9 +61,11 @@ export async function POST(req: Request) {
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 })
 
   const dateStr = clockIn.toISOString().split("T")[0]
-  const durationMinutes = clockOut
+  const breakMinutesVal = typeof b.breakMinutes === "number" ? b.breakMinutes : 0
+  const rawDuration = clockOut
     ? Math.floor((clockOut.getTime() - clockIn.getTime()) / 60000)
     : 0
+  const durationMinutes = Math.max(0, rawDuration - breakMinutesVal)
 
   const timesheet = await prisma.timesheet.create({
     data: {
@@ -74,7 +76,9 @@ export async function POST(req: Request) {
       clockIn,
       clockOut,
       durationMinutes,
-      source: "manual",
+      source: ["manual", "timer", "kiosk", "geofence"].includes(b.source as string)
+        ? (b.source as string)
+        : "manual",
       status: "pending",
       notes: typeof b.notes === "string" ? b.notes : "",
       breakMinutes: typeof b.breakMinutes === "number" ? b.breakMinutes : 0,

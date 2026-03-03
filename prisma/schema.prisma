@@ -191,8 +191,23 @@ model Timesheet {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   geozone   Geozone? @relation(fields: [geozoneId], references: [id], onDelete: SetNull)
   approvedBy User?   @relation("ApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  breaks    TimesheetBreak[]
 
   @@map("timesheets")
+}
+
+model TimesheetBreak {
+  id          String    @id @default(uuid())
+  timesheetId String    @map("timesheet_id")
+  startedAt   DateTime  @map("started_at")
+  endedAt     DateTime? @map("ended_at")
+  durationMin Int       @default(0) @map("duration_min")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  timesheet Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  @@index([timesheetId])
+  @@map("timesheet_breaks")
 }
 
 model Geolog {

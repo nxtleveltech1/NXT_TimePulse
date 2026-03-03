@@ -9,7 +9,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, Pencil, Copy } from "lucide-react"
 import { motion } from "motion/react"
 import {
   Table,
@@ -33,8 +33,16 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { SourceBadge } from "@/components/time-capture/source-badge"
+import { EditEntryDialog } from "@/components/time-capture/edit-entry-dialog"
 
 type TimesheetWithRelations = {
   id: string
@@ -42,8 +50,10 @@ type TimesheetWithRelations = {
   clockIn: Date
   clockOut: Date | null
   durationMinutes: number
+  breakMinutes: number
   source: string
   status: string
+  notes: string | null
   isBillable?: boolean
   user: { firstName: string | null; lastName: string | null }
   project: { name: string }
@@ -58,6 +68,7 @@ export function TimesheetsTable({
   isAdmin: boolean
 }) {
   const [dialog, setDialog] = useState<{ id: string; action: "approve" | "reject" } | null>(null)
+  const [editTarget, setEditTarget] = useState<TimesheetWithRelations | null>(null)
   const [reason, setReason] = useState("")
   const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }])
 
@@ -89,6 +100,15 @@ export function TimesheetsTable({
         cell: ({ row }) => `${Math.floor(row.original.durationMinutes / 60)}h ${row.original.durationMinutes % 60}m`,
       },
       {
+        id: "break",
+        accessorFn: (r) => r.breakMinutes ?? 0,
+        header: "Break",
+        cell: ({ row }) => {
+          const bm = row.original.breakMinutes ?? 0
+          return bm > 0 ? <span className="text-muted-foreground">{bm}m</span> : <span className="text-muted-foreground/50">—</span>
+        },
+      },
+      {
         id: "billable",
         accessorFn: (r) => r.isBillable !== false,
         header: "Billable",
@@ -98,7 +118,12 @@ export function TimesheetsTable({
           </Badge>
         ),
       },
-      { id: "source", accessorKey: "source", header: "Source" },
+      {
+        id: "source",
+        accessorKey: "source",
+        header: "Source",
+        cell: ({ row }) => <SourceBadge source={row.original.source} />,
+      },
       {
         id: "status",
         accessorKey: "status",
@@ -118,24 +143,58 @@ export function TimesheetsTable({
         ),
       },
     ]
-    if (isAdmin) {
-      base.push({
-        id: "actions",
-        enableSorting: false,
-        header: () => <span className="text-right">Actions</span>,
-        cell: ({ row }) =>
-          row.original.status === "pending" ? (
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setDialog({ id: row.original.id, action: "approve" })}>
-                Approve
+    base.push({
+      id: "actions",
+      enableSorting: false,
+      header: () => <span className="text-right">Actions</span>,
+      cell: ({ row }) => {
+        const r = row.original
+        const canEdit = isAdmin || r.status === "pending"
+        return (
+          <div className="flex justify-end gap-1">
+            {canEdit && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setEditTarget(r)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
               </Button>
-              <Button size="sm" variant="destructive" onClick={() => setDialog({ id: row.original.id, action: "reject" })}>
-                Reject
-              </Button>
-            </div>
-          ) : null,
-      })
-    }
+            )}
+            {isAdmin && r.status === "pending" && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8">
+                    Review
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setDialog({ id: r.id, action: "approve" })}>
+                    Approve
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => setDialog({ id: r.id, action: "reject" })}
+                  >
+                    Reject
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Duplicate entry"
+              onClick={() => duplicateEntry(r)}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      },
+    })
     return base
   }, [isAdmin])
 
@@ -169,6 +228,35 @@ export function TimesheetsTable({
     }
   }
 
+  async function duplicateEntry(r: TimesheetWithRelations) {
+    try {
+      const today = new Date().toISOString().split("T")[0]
+      const ci = new Date(r.clockIn)
+      const co = r.clockOut ? new Date(r.clockOut) : null
+      const newClockIn = new Date(`${today}T${format(ci, "HH:mm")}`)
+      const newClockOut = co ? new Date(`${today}T${format(co, "HH:mm")}`) : null
+
+      const res = await fetch("/api/timesheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: r.project.name,
+          clockIn: newClockIn.toISOString(),
+          clockOut: newClockOut?.toISOString() ?? null,
+          notes: r.notes ?? "",
+          breakMinutes: r.breakMinutes ?? 0,
+          isBillable: r.isBillable,
+          source: "manual",
+        }),
+      })
+      if (!res.ok) throw new Error("Failed")
+      toast.success("Entry duplicated to today")
+      window.location.reload()
+    } catch {
+      toast.error("Failed to duplicate entry")
+    }
+  }
+
   const isMobile = useIsMobile()
 
   if (timesheets.length === 0) {
@@ -179,127 +267,7 @@ export function TimesheetsTable({
     )
   }
 
-  if (isMobile) {
-    return (
-      <>
-        <div className="space-y-3">
-          {table.getRowModel().rows.map((row) => {
-            const r = row.original
-            return (
-              <Card key={row.id}>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{r.project.name}</p>
-                      <p className="text-sm text-muted-foreground">{r.date}</p>
-                    </div>
-                    <Badge
-                      variant={
-                        r.status === "approved"
-                          ? "default"
-                          : r.status === "rejected"
-                            ? "destructive"
-                            : "secondary"
-                      }
-                    >
-                      {r.status}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span>{format(new Date(r.clockIn), "HH:mm")} – {r.clockOut ? format(new Date(r.clockOut), "HH:mm") : "—"}</span>
-                    <span>{Math.floor(r.durationMinutes / 60)}h {r.durationMinutes % 60}m</span>
-                  </div>
-                  {isAdmin && r.status === "pending" && (
-                    <div className="flex gap-2 pt-2">
-                      <Button size="touch" variant="outline" className="flex-1" onClick={() => setDialog({ id: r.id, action: "approve" })}>
-                        Approve
-                      </Button>
-                      <Button size="touch" variant="destructive" className="flex-1" onClick={() => setDialog({ id: r.id, action: "reject" })}>
-                        Reject
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-        <Dialog open={!!dialog} onOpenChange={(o) => !o && setDialog(null)}>
-          <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{dialog?.action === "approve" ? "Approve" : "Reject"} timesheet</DialogTitle>
-          <DialogDescription>
-            Provide a reason for this {dialog?.action}. This will be recorded in the audit log.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2 py-4">
-          <Label htmlFor="reason">Reason</Label>
-          <Textarea
-            id="reason"
-            placeholder="e.g. Verified against site records"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
-          <Button
-            onClick={() => dialog && submitStatus(dialog.id, dialog.action === "approve" ? "approved" : "rejected")}
-          >
-            {dialog?.action === "approve" ? "Approve" : "Reject"}
-          </Button>
-        </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </>
-    )
-  }
-
-  return (
-    <>
-    <Table>
-      <TableHeader>
-        {table.getHeaderGroups().map((hg) => (
-          <TableRow key={hg.id}>
-            {hg.headers.map((h) => (
-              <TableHead key={h.id} className={h.id === "actions" ? "text-right" : ""}>
-                {h.column.getCanSort() ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="-ml-3 h-8"
-                    onClick={() => h.column.toggleSorting(h.column.getIsSorted() === "asc")}
-                  >
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : (
-                  flexRender(h.column.columnDef.header, h.getContext())
-                )}
-              </TableHead>
-            ))}
-          </TableRow>
-        ))}
-      </TableHeader>
-      <TableBody>
-        {table.getRowModel().rows.map((row, i) => (
-          <motion.tr
-            key={row.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: i * 0.02 }}
-            className="border-b transition-colors hover:bg-muted/50"
-          >
-            {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id}>
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </motion.tr>
-        ))}
-      </TableBody>
-    </Table>
-
+  const reviewDialog = (
     <Dialog open={!!dialog} onOpenChange={(o) => !o && setDialog(null)}>
       <DialogContent>
         <DialogHeader>
@@ -327,6 +295,132 @@ export function TimesheetsTable({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+
+  if (isMobile) {
+    return (
+      <>
+        <div className="space-y-3">
+          {table.getRowModel().rows.map((row) => {
+            const r = row.original
+            return (
+              <Card key={row.id}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{r.project.name}</p>
+                      <p className="text-sm text-muted-foreground">{r.date}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge
+                        variant={
+                          r.status === "approved"
+                            ? "default"
+                            : r.status === "rejected"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {r.status}
+                      </Badge>
+                      <SourceBadge source={r.source} />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <span>{format(new Date(r.clockIn), "HH:mm")} – {r.clockOut ? format(new Date(r.clockOut), "HH:mm") : "—"}</span>
+                    <span>{Math.floor(r.durationMinutes / 60)}h {r.durationMinutes % 60}m</span>
+                    {(r.breakMinutes ?? 0) > 0 && <span>Break: {r.breakMinutes}m</span>}
+                  </div>
+                  {isAdmin && r.status === "pending" && (
+                    <div className="flex gap-2 pt-2">
+                      <Button size="touch" variant="outline" className="flex-1" onClick={() => setDialog({ id: r.id, action: "approve" })}>
+                        Approve
+                      </Button>
+                      <Button size="touch" variant="destructive" className="flex-1" onClick={() => setDialog({ id: r.id, action: "reject" })}>
+                        Reject
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => setEditTarget(r)}>
+                      <Pencil className="h-3 w-3" /> Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" className="gap-1 text-xs" onClick={() => duplicateEntry(r)}>
+                      <Copy className="h-3 w-3" /> Duplicate
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+        {reviewDialog}
+        {editTarget && (
+          <EditEntryDialog
+            timesheet={editTarget}
+            isAdmin={isAdmin}
+            open={!!editTarget}
+            onOpenChange={(o) => !o && setEditTarget(null)}
+          />
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map((hg) => (
+            <TableRow key={hg.id}>
+              {hg.headers.map((h) => (
+                <TableHead key={h.id} className={h.id === "actions" ? "text-right" : ""}>
+                  {h.column.getCanSort() ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="-ml-3 h-8"
+                      onClick={() => h.column.toggleSorting(h.column.getIsSorted() === "asc")}
+                    >
+                      {flexRender(h.column.columnDef.header, h.getContext())}
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  ) : (
+                    flexRender(h.column.columnDef.header, h.getContext())
+                  )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.map((row, i) => (
+            <motion.tr
+              key={row.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: i * 0.02 }}
+              className="border-b transition-colors hover:bg-muted/50"
+            >
+              {row.getVisibleCells().map((cell) => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </motion.tr>
+          ))}
+        </TableBody>
+      </Table>
+
+      {reviewDialog}
+      {editTarget && (
+        <EditEntryDialog
+          timesheet={editTarget}
+          isAdmin={isAdmin}
+          open={!!editTarget}
+          onOpenChange={(o) => !o && setEditTarget(null)}
+        />
+      )}
     </>
   )
 }

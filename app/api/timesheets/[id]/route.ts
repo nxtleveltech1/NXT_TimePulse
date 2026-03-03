@@ -53,9 +53,11 @@ export async function PATCH(
 
   const b = body as Record<string, unknown>
   const data: Record<string, unknown> = {}
+  if (typeof b.clockIn === "string") data.clockIn = new Date(b.clockIn)
   if (typeof b.clockOut === "string") data.clockOut = new Date(b.clockOut)
   if (typeof b.notes === "string") data.notes = b.notes
   if (typeof b.isBillable === "boolean") data.isBillable = b.isBillable
+  if (typeof b.breakMinutes === "number" && b.breakMinutes >= 0) data.breakMinutes = b.breakMinutes
   if (typeof b.status === "string" && ["pending", "approved", "rejected", "flagged"].includes(b.status)) {
     data.status = b.status
   }
@@ -91,10 +93,19 @@ export async function PATCH(
     })
   }
 
-  if (data.clockOut && timesheet.clockIn) {
-    data.durationMinutes = Math.floor(
-      ((data.clockOut as Date).getTime() - timesheet.clockIn.getTime()) / 60000
+  const effectiveClockIn = (data.clockIn as Date | undefined) ?? timesheet.clockIn
+  const effectiveClockOut = (data.clockOut as Date | undefined) ?? timesheet.clockOut
+  if (effectiveClockIn && effectiveClockOut) {
+    const rawMinutes = Math.floor(
+      (effectiveClockOut.getTime() - effectiveClockIn.getTime()) / 60000
     )
+    const breakMin = typeof data.breakMinutes === "number"
+      ? data.breakMinutes
+      : timesheet.breakMinutes
+    data.durationMinutes = Math.max(0, rawMinutes - breakMin)
+  }
+  if (data.clockIn) {
+    data.date = (data.clockIn as Date).toISOString().split("T")[0]
   }
 
   const updated = await prisma.timesheet.update({
