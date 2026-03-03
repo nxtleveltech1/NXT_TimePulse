@@ -1,10 +1,36 @@
-﻿import { auth } from "@clerk/nextjs/server"
+import { auth } from "@clerk/nextjs/server"
+import { Prisma } from "@/generated/prisma"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UsersTable } from "./users-table"
 import { UserInviteButton } from "./user-invite-button"
 import { isAdmin, isAdminOrManager } from "@/lib/auth"
+
+type UserRow = {
+  id: string
+  email: string | null
+  firstName: string | null
+  lastName: string | null
+  role: string
+  status: string
+  _count: { timesheets: number; allocations: number }
+}
+
+type AssignmentRow = {
+  id: string
+  status: string
+  userId: string
+  projectId: string
+}
+
+type LifecycleRow = {
+  id: string
+  eventType: string
+  createdAt: Date
+  user: { id: string; firstName: string | null; lastName: string | null; email: string | null }
+  actorUser: { id: string; firstName: string | null; lastName: string | null; email: string | null }
+}
 
 export default async function UsersPage() {
   const { userId, orgId, orgRole } = await auth()
@@ -20,31 +46,88 @@ export default async function UsersPage() {
   const org = orgId ?? "org_default"
   const canReadComp = isAdmin(orgRole as string)
 
-  const [users, assignments, lifecycleEvents, pendingRequests, rateCount] = await Promise.all([
-    prisma.user.findMany({
-      where: { orgId: org },
-      include: { _count: { select: { timesheets: true, allocations: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.projectAssignment.findMany({
-      where: { orgId: org },
-      select: { id: true, status: true, userId: true, projectId: true },
-    }),
-    prisma.userLifecycleEvent.findMany({
-      where: { orgId: org },
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
-        actorUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+  let degradedMode = false
+  let users: UserRow[] = []
+  let assignments: AssignmentRow[] = []
+  let lifecycleEvents: LifecycleRow[] = []
+  let pendingRequests: Array<{ id: string }> = []
+  let rateCount = 0
+
+  try {
+    ;[users, assignments, lifecycleEvents, pendingRequests, rateCount] = await Promise.all([
+      prisma.user.findMany({
+        where: { orgId: org },
+        include: { _count: { select: { timesheets: true, allocations: true } } },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.projectAssignment.findMany({
+        where: { orgId: org },
+        select: { id: true, status: true, userId: true, projectId: true },
+      }),
+      prisma.userLifecycleEvent.findMany({
+        where: { orgId: org },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true, email: true } },
+          actorUser: { select: { id: true, firstName: true, lastName: true, email: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+      prisma.adminChangeRequest.findMany({
+        where: { orgId: org, status: "pending" },
+        select: { id: true },
+      }),
+      canReadComp ? prisma.rateCard.count({ where: { orgId: org } }) : Promise.resolve(0),
+    ])
+  } catch {
+    degradedMode = true
+    const fallbackUsers = await prisma.$queryRaw<
+      Array<{
+        id: string
+        email: string | null
+        first_name: string | null
+        last_name: string | null
+        role: string
+        status: string
+        timesheets_count: bigint
+        allocations_count: bigint
+      }>
+    >(Prisma.sql`
+      SELECT
+        u.id,
+        u.email,
+        u.first_name,
+        u.last_name,
+        u.role,
+        u.status::text AS status,
+        (
+          SELECT COUNT(*)
+          FROM timesheets t
+          WHERE t.user_id = u.id
+        ) AS timesheets_count,
+        (
+          SELECT COUNT(*)
+          FROM project_allocations pa
+          WHERE pa.user_id = u.id
+        ) AS allocations_count
+      FROM users u
+      WHERE u.org_id = ${org}
+      ORDER BY u.created_at DESC
+    `)
+
+    users = fallbackUsers.map((u) => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      role: u.role,
+      status: u.status,
+      _count: {
+        timesheets: Number(u.timesheets_count),
+        allocations: Number(u.allocations_count),
       },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
-    prisma.adminChangeRequest.findMany({
-      where: { orgId: org, status: "pending" },
-      select: { id: true },
-    }),
-    canReadComp ? prisma.rateCard.count({ where: { orgId: org } }) : Promise.resolve(0),
-  ])
+    }))
+  }
 
   const activeUsers = users.filter((u) => u.status === "active").length
   const suspendedUsers = users.filter((u) => u.status === "suspended").length
@@ -69,12 +152,17 @@ export default async function UsersPage() {
       </div>
 
       <Tabs defaultValue="directory" className="space-y-4">
+        {degradedMode && (
+          <p className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+            Running in compatibility mode due to partial schema mismatch. Core directory is available while advanced admin modules are temporarily unavailable.
+          </p>
+        )}
         <TabsList>
           <TabsTrigger value="directory">Directory</TabsTrigger>
           <TabsTrigger value="access">Access</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="compensation" disabled={!canReadComp}>Compensation</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="compensation" disabled={!canReadComp || degradedMode}>Compensation</TabsTrigger>
+          <TabsTrigger value="timeline" disabled={degradedMode}>Timeline</TabsTrigger>
         </TabsList>
 
         <TabsContent value="directory" className="space-y-4">
@@ -82,11 +170,11 @@ export default async function UsersPage() {
             <CardHeader>
               <CardTitle>All users</CardTitle>
               <CardDescription>
-                {users.length} user(s) · Edit role/status or request offboarding from row actions
+                {users.length} user(s) - Edit role/status or request offboarding from row actions
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <UsersTable users={users} currentUserId={userId ?? ""} canManageComp={canReadComp} />
+              <UsersTable users={users} currentUserId={userId ?? ""} canManageComp={canReadComp && !degradedMode} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -129,8 +217,8 @@ export default async function UsersPage() {
               <CardDescription>Rate cards and approval-gated compensation changes</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-2 text-sm">
-              {!canReadComp ? (
-                <p className="text-muted-foreground">Only admins can view compensation details.</p>
+              {!canReadComp || degradedMode ? (
+                <p className="text-muted-foreground">Compensation details are unavailable in compatibility mode.</p>
               ) : (
                 <>
                   <p><span className="font-medium">Rate card records:</span> {rateCount}</p>
@@ -156,7 +244,7 @@ export default async function UsersPage() {
                 const actorName = [e.actorUser.firstName, e.actorUser.lastName].filter(Boolean).join(" ") || e.actorUser.email || e.actorUser.id
                 return (
                   <div key={e.id} className="rounded border p-2">
-                    <p className="font-medium">{e.eventType} · {userName}</p>
+                    <p className="font-medium">{e.eventType} - {userName}</p>
                     <p className="text-muted-foreground">
                       {e.createdAt.toISOString().slice(0, 19).replace("T", " ")} by {actorName}
                     </p>
@@ -170,4 +258,3 @@ export default async function UsersPage() {
     </div>
   )
 }
-
