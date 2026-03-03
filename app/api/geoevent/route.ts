@@ -98,6 +98,7 @@ export async function POST(req: Request) {
 
   const now = new Date()
   const dateStr = now.toISOString().split("T")[0]
+  const geozoneIdValue = geozoneId as string
 
   if (eventType === "entry") {
     // Check for existing open entry
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
       data: {
         userId,
         projectId,
-        geozoneId,
+        geozoneId: geozoneIdValue,
         date: dateStr,
         clockIn: now,
         source: "geofence",
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
       VALUES (
         gen_random_uuid()::text,
         ${userId},
-        ${geozoneId},
+        ${geozoneIdValue},
         'entry',
         ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326),
         ${deviceInfo ? JSON.stringify(deviceInfo) : null}::jsonb
@@ -168,7 +169,7 @@ export async function POST(req: Request) {
     })
 
     // Insert geolog (use geozoneId from request - we validated we're inside it)
-    const exitGeozoneId = openEntry.geozoneId ?? geozoneId
+    const exitGeozoneId = openEntry.geozoneId ?? geozoneIdValue
     if (exitGeozoneId) {
       await prisma.$executeRaw`
         INSERT INTO geologs (id, user_id, geozone_id, event_type, coords, device_info)

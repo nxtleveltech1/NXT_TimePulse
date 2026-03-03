@@ -5,6 +5,7 @@ import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { z } from "zod"
 import { randomBytes } from "crypto"
+import { logLifecycleEvent } from "@/lib/lifecycle"
 
 const createSchema = z.object({
   firstName: z.string().min(1, "First name required"),
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
         firstName,
         lastName,
         phone: phone ?? null,
-        status: "active",
+        status: "invited",
         updatedAt: new Date(),
       },
       update: {
@@ -102,10 +103,18 @@ export async function POST(req: Request) {
         firstName,
         lastName,
         phone: phone ?? null,
-        status: "active",
+        status: "invited",
         updatedAt: new Date(),
       },
     })
+
+    await logLifecycleEvent({
+      orgId: org,
+      userId: newUser.id,
+      actorUserId: userId,
+      eventType: "invited",
+      metadata: { source: "create_user", role },
+    }).catch(() => {})
 
     return NextResponse.json({
       id: newUser.id,
@@ -113,8 +122,7 @@ export async function POST(req: Request) {
       firstName,
       lastName,
       role,
-      temporaryPassword: password,
-      message: "User created. Share the temporary password securely. User should change it on first login.",
+      message: "User created. Ask the user to complete a password reset on first sign-in.",
     })
   } catch (err) {
     if (process.env.NODE_ENV === "development") {

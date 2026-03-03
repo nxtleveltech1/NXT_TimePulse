@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import {
@@ -35,9 +35,11 @@ export type UserWithCount = {
 export function UsersTable({
   users,
   currentUserId,
+  canManageComp,
 }: {
   users: UserWithCount[]
   currentUserId: string
+  canManageComp: boolean
 }) {
   const [editingUser, setEditingUser] = useState<UserWithCount | null>(null)
   const [removingUser, setRemovingUser] = useState<UserWithCount | null>(null)
@@ -68,9 +70,11 @@ export function UsersTable({
           {users.map((u) => (
             <TableRow key={u.id}>
               <TableCell className="sticky left-0 z-10 bg-background font-medium">
-                {[u.firstName, u.lastName].filter(Boolean).join(" ") || "—"}
+                <Link href={`/dashboard/users/${u.id}`} className="underline-offset-2 hover:underline">
+                  {[u.firstName, u.lastName].filter(Boolean).join(" ") || "-"}
+                </Link>
               </TableCell>
-              <TableCell>{u.email ?? "—"}</TableCell>
+              <TableCell>{u.email ?? "-"}</TableCell>
               <TableCell><Badge variant="secondary">{u.role}</Badge></TableCell>
               <TableCell><Badge variant={u.status === "active" ? "default" : "secondary"}>{u.status}</Badge></TableCell>
               <TableCell>{u._count.timesheets}</TableCell>
@@ -84,12 +88,14 @@ export function UsersTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/dashboard/resources/users/${u.id}`}>
-                        <Wallet className="mr-2 h-4 w-4" />
-                        Manage rates
-                      </Link>
-                    </DropdownMenuItem>
+                    {canManageComp && (
+                      <DropdownMenuItem asChild>
+                        <Link href={`/dashboard/resources/users/${u.id}`}>
+                          <Wallet className="mr-2 h-4 w-4" />
+                          Manage rates
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => setEditingUser(u)}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Edit role/status
@@ -100,7 +106,7 @@ export function UsersTable({
                         className="text-destructive focus:text-destructive"
                       >
                         <UserMinus className="mr-2 h-4 w-4" />
-                        Remove from org
+                        Request offboard
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -127,3 +133,4 @@ export function UsersTable({
     </>
   )
 }
+

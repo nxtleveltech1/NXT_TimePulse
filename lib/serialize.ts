@@ -1,5 +1,5 @@
 /** Convert Prisma Decimal to number for JSON serialization. */
-export function decimalToNumber(d: { toNumber?: () => number } | null | undefined): number {
+export function decimalToNumber(d: unknown): number {
   if (d == null) return 0
   return typeof (d as { toNumber?: () => number }).toNumber === "function"
     ? (d as { toNumber: () => number }).toNumber()

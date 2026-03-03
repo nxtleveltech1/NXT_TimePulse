@@ -7,6 +7,8 @@ import type {
   ProjectAllocation,
   AuditLogEntry,
   OrgSettings,
+  TimesheetStatus,
+  TimesheetSource,
 } from "./types"
 
 // --------------- Organization Settings ---------------
@@ -146,7 +148,7 @@ export const users: User[] = [
     role: "worker",
     employee_code: "ACG-008",
     skills: ["Masonry", "Landscaping"],
-    status: "inactive",
+    status: "suspended",
     avatar_url: "",
     created_at: "2024-07-01T09:00:00Z",
     updated_at: "2025-10-15T09:00:00Z",

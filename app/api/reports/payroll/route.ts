@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
-import { decimalToNumber } from "@/lib/serialize"
+import { resolveRateFromCards } from "@/lib/rates"
+import { getRateCardsByUser } from "@/lib/rate-card-map"
 
 export async function GET(req: Request) {
   const { orgId, orgRole } = await auth()
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
   }
   if (userId) where.userId = userId
 
-  const [timesheets, allocations, overtimePolicy] = await Promise.all([
+  const [timesheets, overtimePolicy] = await Promise.all([
     prisma.timesheet.findMany({
     where,
     include: {
@@ -36,19 +37,11 @@ export async function GET(req: Request) {
     },
     orderBy: [{ date: "asc" }, { clockIn: "asc" }],
   }),
-    prisma.projectAllocation.findMany({
-      where: {
-        project: { orgId },
-        isActive: true,
-      },
-      select: { userId: true, projectId: true, hourlyRate: true },
-    }),
     getOvertimePolicy(orgId),
   ])
-  const allocationMap = new Map<string, number>()
-  for (const a of allocations) {
-    allocationMap.set(`${a.userId}:${a.projectId}`, decimalToNumber(a.hourlyRate))
-  }
+  const userIds = [...new Set(timesheets.map((t) => t.userId))]
+  const projectIds = [...new Set(timesheets.map((t) => t.projectId))]
+  const rateCardsByUser = await getRateCardsByUser(orgId, userIds, projectIds)
 
   const rows: string[][] = [
     [
@@ -68,10 +61,15 @@ export async function GET(req: Request) {
   ]
 
   for (const t of timesheets) {
-    const baseRate =
-      allocationMap.get(`${t.userId}:${t.projectId}`) ?? decimalToNumber(t.project.defaultRate)
+    const resolved = resolveRateFromCards({
+      date: t.date,
+      projectId: t.projectId,
+      projectDefaultRate: t.project.defaultRate,
+      projectClientRate: t.project.defaultRate,
+      rateCards: rateCardsByUser.get(t.userId) ?? [],
+    })
     const mult = getOvertimeMultiplier(t.date, overtimePolicy)
-    const effectiveRate = baseRate * mult
+    const effectiveRate = resolved.payRate * mult
     const hours = t.durationMinutes / 60
     const amount = hours * effectiveRate
     const name = [t.user.firstName, t.user.lastName].filter(Boolean).join(" ") || t.user.id
@@ -83,7 +81,7 @@ export async function GET(req: Request) {
       t.date,
       t.project.name,
       hours.toFixed(2),
-      baseRate.toFixed(2),
+      resolved.payRate.toFixed(2),
       mult.toString(),
       effectiveRate.toFixed(2),
       amount.toFixed(2),

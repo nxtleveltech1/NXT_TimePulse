@@ -61,7 +61,12 @@ export function UserEditDialog({ user, open, onOpenChange }: UserEditDialogProps
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error ?? "Failed to update user")
       }
-      toast.success("User updated")
+      const data = await res.json().catch(() => ({}))
+      if (data?.status === "pending_approval") {
+        toast.success("User access change submitted for approval")
+      } else {
+        toast.success("User updated")
+      }
       onOpenChange(false)
       router.refresh()
     } catch (e) {
@@ -103,8 +108,11 @@ export function UserEditDialog({ user, open, onOpenChange }: UserEditDialogProps
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="invited">Invited</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+                <SelectItem value="offboarded">Offboarded</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
           </div>

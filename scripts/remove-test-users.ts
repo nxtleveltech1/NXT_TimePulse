@@ -44,7 +44,7 @@ async function main() {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { status: "inactive", orgId: "org_removed" },
+      data: { status: "offboarded", orgId: "org_removed", offboardedAt: new Date() },
     })
     console.log(`  Deactivated ${displayName} in DB`)
   }

@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 
 type UserCreateDialogProps = {
@@ -38,11 +37,10 @@ export function UserCreateDialog({ open, onOpenChange }: UserCreateDialogProps) 
   const [creating, setCreating] = useState(false)
   const [result, setResult] = useState<{
     email: string
-    temporaryPassword: string
     firstName: string
     lastName: string
+    message?: string
   } | null>(null)
-  const [copied, setCopied] = useState(false)
 
   function reset() {
     setFirstName("")
@@ -78,9 +76,9 @@ export function UserCreateDialog({ open, onOpenChange }: UserCreateDialogProps) 
       }
       setResult({
         email: data.email,
-        temporaryPassword: data.temporaryPassword,
         firstName: data.firstName,
         lastName: data.lastName,
+        message: data.message,
       })
       toast.success("User created")
       router.refresh()
@@ -89,14 +87,6 @@ export function UserCreateDialog({ open, onOpenChange }: UserCreateDialogProps) 
     } finally {
       setCreating(false)
     }
-  }
-
-  function handleCopy() {
-    if (!result) return
-    navigator.clipboard.writeText(result.temporaryPassword)
-    setCopied(true)
-    toast.success("Password copied")
-    setTimeout(() => setCopied(false), 2000)
   }
 
   function handleClose(open: boolean) {
@@ -113,8 +103,8 @@ export function UserCreateDialog({ open, onOpenChange }: UserCreateDialogProps) 
           <DialogTitle>{result ? "User created" : "Add new user"}</DialogTitle>
           <DialogDescription>
             {result
-              ? "Share the temporary password with the user. They should change it on first login."
-              : "Create a user with name, email, and mobile. A password will be generated."}
+              ? "User was created successfully."
+              : "Create a user with name, email, and mobile. They should reset their password on first sign-in."}
           </DialogDescription>
         </DialogHeader>
 
@@ -125,25 +115,8 @@ export function UserCreateDialog({ open, onOpenChange }: UserCreateDialogProps) 
                 {result.firstName} {result.lastName}
               </p>
               <p className="text-sm text-muted-foreground">{result.email}</p>
-              <div className="space-y-2">
-                <Label className="text-xs">Temporary password</Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={result.temporaryPassword}
-                    className="font-mono text-sm"
-                  />
-                  <Button variant="outline" size="icon" onClick={handleCopy}>
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <p className="text-xs text-amber-600 dark:text-amber-500">
-                Copy and share securely. User should change this on first login.
+              <p className="text-xs text-muted-foreground">
+                {result.message ?? "Ask the user to reset their password on first sign-in."}
               </p>
             </div>
             <Button onClick={() => handleClose(false)}>Done</Button>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { z } from "zod"
+import { logLifecycleEvent } from "@/lib/lifecycle"
 
 const addSchema = z.object({
   email: z.string().email(),
@@ -97,6 +98,14 @@ export async function POST(req: Request) {
         updatedAt: new Date(),
       },
     })
+
+    await logLifecycleEvent({
+      orgId: org,
+      userId: targetUser.id,
+      actorUserId: userId,
+      eventType: "activated",
+      metadata: { source: "add_existing_user", role },
+    }).catch(() => {})
 
     return NextResponse.json({
       id: targetUser.id,

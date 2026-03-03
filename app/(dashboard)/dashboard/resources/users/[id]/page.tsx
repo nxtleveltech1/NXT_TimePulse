@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server"
+﻿import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft } from "lucide-react"
 import { UserRatesContent } from "./user-rates-content"
-import { isAdminOrManager } from "@/lib/auth"
+import { isAdmin } from "@/lib/auth"
 
 export default async function UserRatesPage({
   params,
@@ -15,11 +15,11 @@ export default async function UserRatesPage({
 }) {
   const { id } = await params
   const { orgId, orgRole } = await auth()
-  if (!isAdminOrManager(orgRole as string)) {
+  if (!isAdmin(orgRole as string)) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Manage rates</h1>
-        <p className="text-muted-foreground">Access restricted to admins and managers.</p>
+        <p className="text-muted-foreground">Only admins can view compensation details.</p>
       </div>
     )
   }
@@ -70,7 +70,7 @@ export default async function UserRatesPage({
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold">Manage rates — {displayName}</h1>
+          <h1 className="text-2xl font-semibold">Manage rates - {displayName}</h1>
           <p className="text-muted-foreground">
             Project allocations and hourly rates for this user
           </p>
@@ -82,7 +82,7 @@ export default async function UserRatesPage({
           <div>
             <CardTitle>Allocations</CardTitle>
             <CardDescription>
-              {allocations.length} project(s) — Edit rate, role, or remove
+              {allocations.length} project(s) - Edit rate, role, or remove
             </CardDescription>
           </div>
         </CardHeader>

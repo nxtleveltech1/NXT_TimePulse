@@ -35,7 +35,7 @@ export function GeozoneMapEditor({
   height?: number
 }) {
   const mapRef = useRef<MapRef>(null)
-  const drawRef = useRef<MapboxDraw | null>(null)
+  const drawRef = useRef<any>(null)
   const initialSetRef = useRef(false)
   const cleanupRef = useRef<(() => void) | null>(null)
   const isMobile = useIsMobile()
@@ -48,9 +48,9 @@ export function GeozoneMapEditor({
     const draw = drawRef.current
     if (!draw) return
     const data = draw.getAll()
-    const poly = data.features.find((f) => f.geometry.type === "Polygon")
+    const poly = data.features.find((f: any) => f.geometry.type === "Polygon")
     if (poly && poly.geometry.type === "Polygon" && poly.geometry.coordinates[0]) {
-      const coords = poly.geometry.coordinates[0].map(([lng, lat]) => [lng, lat] as Coord)
+      const coords = poly.geometry.coordinates[0].map(([lng, lat]: [number, number]) => [lng, lat] as Coord)
       onChange(coords)
     } else {
       onChange([])

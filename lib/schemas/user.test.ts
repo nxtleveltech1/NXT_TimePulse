@@ -13,7 +13,7 @@ describe("userUpdateSchema", () => {
   })
 
   it("accepts status only", () => {
-    const result = userUpdateSchema.safeParse({ status: "inactive" })
+    const result = userUpdateSchema.safeParse({ status: "suspended" })
     expect(result.success).toBe(true)
   })
 
@@ -28,7 +28,7 @@ describe("userUpdateSchema", () => {
   })
 
   it("rejects invalid status", () => {
-    const result = userUpdateSchema.safeParse({ status: "suspended" })
+    const result = userUpdateSchema.safeParse({ status: "inactive" })
     expect(result.success).toBe(false)
   })
 })

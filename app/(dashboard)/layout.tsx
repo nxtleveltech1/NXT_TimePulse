@@ -14,6 +14,7 @@ import {
   ScrollText,
   Shield,
   Wallet,
+  CheckSquare,
 } from "lucide-react"
 export const dynamic = "force-dynamic"
 
@@ -46,6 +47,7 @@ const mainNavItems = [
 const adminNavItems = [
   { href: "/dashboard/users", label: "Users", icon: Users },
   { href: "/dashboard/resources", label: "Resources", icon: Wallet },
+  { href: "/dashboard/approvals", label: "Approvals", icon: CheckSquare, adminOnly: true },
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/financials", label: "Financials", icon: FileText },
   { href: "/dashboard/audit", label: "Audit", icon: ScrollText },
@@ -58,6 +60,7 @@ export default async function DashboardLayout({
 }) {
   const { orgRole } = await auth()
   const isAdmin = isAdminOrManager(orgRole as string)
+  const isSuperAdmin = orgRole === "org:admin"
 
   return (
     <SidebarProvider>
@@ -93,7 +96,9 @@ export default async function DashboardLayout({
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {adminNavItems.map((item) => (
+                  {adminNavItems
+                    .filter((item) => !item.adminOnly || isSuperAdmin)
+                    .map((item) => (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton asChild>
                         <Link href={item.href}>

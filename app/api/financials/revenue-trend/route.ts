@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
-import { decimalToNumber } from "@/lib/serialize"
+import { resolveRateFromCards } from "@/lib/rates"
+import { getRateCardsByUser } from "@/lib/rate-card-map"
 
 export async function GET(req: Request) {
   const { orgId, orgRole } = await auth()
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   const to = searchParams.get("to") ?? new Date().toISOString().split("T")[0]
   const groupBy = searchParams.get("groupBy") ?? "month"
 
-  const [timesheets, allocations, overtimePolicy] = await Promise.all([
+  const [timesheets, overtimePolicy] = await Promise.all([
     prisma.timesheet.findMany({
     where: {
       date: { gte: from, lte: to },
@@ -27,19 +28,11 @@ export async function GET(req: Request) {
       project: { select: { id: true, name: true, defaultRate: true, clientRate: true } },
     },
   }),
-    prisma.projectAllocation.findMany({
-    where: {
-      project: { orgId },
-      isActive: true,
-    },
-    select: { userId: true, projectId: true, hourlyRate: true },
-  }),
     getOvertimePolicy(orgId),
   ])
-  const allocMap = new Map<string, number>()
-  for (const a of allocations) {
-    allocMap.set(`${a.userId}:${a.projectId}`, decimalToNumber(a.hourlyRate))
-  }
+  const userIds = [...new Set(timesheets.map((t) => t.userId))]
+  const projectIds = [...new Set(timesheets.map((t) => t.projectId))]
+  const rateCardsByUser = await getRateCardsByUser(orgId, userIds, projectIds)
 
   const revenueByPeriod: Record<string, number> = {}
   const costByPeriod: Record<string, number> = {}
@@ -58,19 +51,24 @@ export async function GET(req: Request) {
 
   for (const t of timesheets) {
     const key = periodKey(t.date)
-    const clientRate = decimalToNumber((t.project as { clientRate?: unknown }).clientRate) || decimalToNumber(t.project.defaultRate)
-    const baseRate = allocMap.get(`${t.userId}:${t.projectId}`) ?? decimalToNumber(t.project.defaultRate)
+    const resolved = resolveRateFromCards({
+      date: t.date,
+      projectId: t.projectId,
+      projectDefaultRate: t.project.defaultRate,
+      projectClientRate: (t.project as { clientRate?: unknown }).clientRate,
+      rateCards: rateCardsByUser.get(t.userId) ?? [],
+    })
     const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60
     const isBillable = (t as { isBillable?: boolean }).isBillable !== false
 
     if (isBillable) {
-      revenueByPeriod[key] = (revenueByPeriod[key] ?? 0) + hours * clientRate
+      revenueByPeriod[key] = (revenueByPeriod[key] ?? 0) + hours * resolved.billRate
       billableHoursByPeriod[key] = (billableHoursByPeriod[key] ?? 0) + hours
     } else {
       nonBillableHoursByPeriod[key] = (nonBillableHoursByPeriod[key] ?? 0) + hours
     }
-    costByPeriod[key] = (costByPeriod[key] ?? 0) + hours * baseRate * mult
+    costByPeriod[key] = (costByPeriod[key] ?? 0) + hours * resolved.payRate * mult
   }
 
   const periods = [...new Set([...Object.keys(revenueByPeriod), ...Object.keys(costByPeriod)])].sort()

@@ -19,8 +19,17 @@ const isAdminRoute = createRouteMatcher([
   "/dashboard/financials/(.*)",
   "/dashboard/resources",
   "/dashboard/resources/(.*)",
+  "/dashboard/approvals",
+  "/dashboard/approvals/(.*)",
   "/dashboard/audit",
   "/dashboard/audit/(.*)",
+])
+
+const isSuperAdminRoute = createRouteMatcher([
+  "/dashboard/approvals",
+  "/dashboard/approvals/(.*)",
+  "/api/admin/change-requests",
+  "/api/admin/change-requests/(.*)",
 ])
 
 function isAdminOrManager(orgRole: string | undefined) {
@@ -46,6 +55,9 @@ export default clerkMiddleware(async (auth, req) => {
 
     // Admin routes require org:admin or org:manager
     if (isAdminRoute(req) && !isAdminOrManager(orgRole as string)) {
+      return new Response("Forbidden", { status: 403 })
+    }
+    if (isSuperAdminRoute(req) && orgRole !== "org:admin") {
       return new Response("Forbidden", { status: 403 })
     }
   }

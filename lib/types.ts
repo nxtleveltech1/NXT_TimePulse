@@ -1,5 +1,5 @@
 export type UserRole = "admin" | "manager" | "worker"
-export type UserStatus = "active" | "inactive" | "suspended"
+export type UserStatus = "invited" | "active" | "suspended" | "offboarded" | "archived"
 export type ProjectStatus = "active" | "completed" | "on_hold" | "archived"
 export type TimesheetStatus = "pending" | "approved" | "rejected" | "flagged"
 export type TimesheetSource = "geofence" | "manual" | "kiosk"

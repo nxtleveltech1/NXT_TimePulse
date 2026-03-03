@@ -10,6 +10,46 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserLifecycleStatus {
+  invited
+  active
+  suspended
+  offboarded
+  archived
+}
+
+enum EmploymentType {
+  employee
+  contractor
+  temp
+}
+
+enum AssignmentStatus {
+  active
+  paused
+  ended
+}
+
+enum RateCardStatus {
+  pending
+  active
+  superseded
+  cancelled
+}
+
+enum ChangeType {
+  rate_change
+  assignment_change
+  user_access_change
+}
+
+enum ChangeRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
 model User {
   id           String   @id
   email        String?
@@ -19,8 +59,12 @@ model User {
   lastName     String?  @map("last_name")
   phone        String?
   employeeCode String?  @map("employee_code")
-  status       String   @default("active")
+  status       UserLifecycleStatus @default(active)
   avatarUrl    String?  @map("avatar_url")
+  managerUserId String? @map("manager_user_id")
+  employmentType EmploymentType @default(employee) @map("employment_type")
+  offboardedAt DateTime? @map("offboarded_at")
+  lastIdentitySyncAt DateTime? @map("last_identity_sync_at")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -31,6 +75,18 @@ model User {
   auditLogs          AuditLog[]
   leaveRequests      LeaveRequest[]
   approvedLeaveRequests LeaveRequest[] @relation("ApprovedLeaveRequests")
+  managerUser User? @relation("UserManager", fields: [managerUserId], references: [id], onDelete: SetNull)
+  directReports User[] @relation("UserManager")
+  assignments ProjectAssignment[]
+  createdAssignments ProjectAssignment[] @relation("AssignmentCreatedBy")
+  updatedAssignments ProjectAssignment[] @relation("AssignmentUpdatedBy")
+  rateCards RateCard[] @relation("RateCardUser")
+  requestedRateCards RateCard[] @relation("RateCardRequestedBy")
+  approvedRateCards RateCard[] @relation("RateCardApprovedBy")
+  requestedChangeRequests AdminChangeRequest[] @relation("RequestedChangeRequests")
+  reviewedChangeRequests AdminChangeRequest[] @relation("ReviewedChangeRequests")
+  lifecycleEvents UserLifecycleEvent[] @relation("LifecycleEventUser")
+  actedLifecycleEvents UserLifecycleEvent[] @relation("LifecycleActor")
 
   @@map("users")
 }
@@ -58,6 +114,10 @@ model Organization {
   id       String  @id
   name     String
   settings Json?   @default("{}")
+  assignments ProjectAssignment[]
+  rateCards RateCard[]
+  changeRequests AdminChangeRequest[]
+  lifecycleEvents UserLifecycleEvent[]
 
   @@map("organizations")
 }
@@ -81,6 +141,8 @@ model Project {
   geozones   Geozone[]
   timesheets Timesheet[]
   allocations ProjectAllocation[]
+  assignments ProjectAssignment[]
+  rateCards RateCard[]
 
   @@map("projects")
 }
@@ -164,6 +226,123 @@ model ProjectAllocation {
 
   @@unique([userId, projectId])
   @@map("project_allocations")
+}
+
+model ProjectAssignment {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  userId        String   @map("user_id")
+  projectId     String   @map("project_id")
+  roleOnProject String   @map("role_on_project")
+  allocationPct Decimal  @default(100) @map("allocation_pct") @db.Decimal(5, 2)
+  startDate     DateTime @map("start_date") @db.Date
+  endDate       DateTime? @map("end_date") @db.Date
+  status        AssignmentStatus @default(active)
+  createdById   String   @map("created_by")
+  updatedById   String   @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User         @relation("AssignmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User         @relation("AssignmentUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([orgId, userId, projectId])
+  @@index([projectId, status, startDate, endDate])
+  @@map("project_assignments")
+}
+
+model RateCard {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  userId        String   @map("user_id")
+  projectId     String?  @map("project_id")
+  payRate       Decimal  @map("pay_rate") @db.Decimal(12, 4)
+  billRate      Decimal? @map("bill_rate") @db.Decimal(12, 4)
+  currency      String   @db.Char(3)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  status        RateCardStatus @default(active)
+  changeReason  String?  @map("change_reason")
+  requestedById String   @map("requested_by")
+  approvedById  String?  @map("approved_by")
+  approvedAt    DateTime? @map("approved_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user        User         @relation("RateCardUser", fields: [userId], references: [id], onDelete: Cascade)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedBy User         @relation("RateCardRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedBy  User?        @relation("RateCardApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([orgId, userId, projectId, effectiveFrom, effectiveTo])
+  @@index([orgId, status])
+  @@map("rate_cards")
+}
+
+model AdminChangeRequest {
+  id             String   @id @default(uuid())
+  orgId          String   @map("org_id")
+  changeType     ChangeType @map("change_type")
+  targetType     String   @map("target_type")
+  targetId       String?  @map("target_id")
+  payload        Json
+  criticalReason String?  @map("critical_reason")
+  status         ChangeRequestStatus @default(pending)
+  requestedById  String   @map("requested_by")
+  reviewedById   String?  @map("reviewed_by")
+  reviewedAt     DateTime? @map("reviewed_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  requestedBy User         @relation("RequestedChangeRequests", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy  User?        @relation("ReviewedChangeRequests", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([orgId, status, changeType, createdAt])
+  @@map("admin_change_requests")
+}
+
+model UserLifecycleEvent {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  userId      String   @map("user_id")
+  eventType   String   @map("event_type")
+  actorUserId String   @map("actor_user_id")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user      User         @relation("LifecycleEventUser", fields: [userId], references: [id], onDelete: Cascade)
+  actorUser User         @relation("LifecycleActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([orgId, userId, createdAt])
+  @@map("user_lifecycle_events")
+}
+
+model WebhookEventLog {
+  id           String   @id
+  eventType    String   @map("event_type")
+  receivedAt   DateTime @default(now()) @map("received_at")
+  processedAt  DateTime? @map("processed_at")
+  status       String
+  errorMessage String?  @map("error_message")
+
+  @@index([status, receivedAt])
+  @@map("webhook_event_log")
+}
+
+model ApiRateLimitCounter {
+  key         String   @id
+  windowStart DateTime @map("window_start")
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([windowStart])
+  @@map("api_rate_limit_counters")
 }
 
 model AuditLog {

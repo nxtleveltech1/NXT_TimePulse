@@ -57,7 +57,7 @@ export default async function ResourcesPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Go to <a href="/dashboard/users" className="underline">Users</a> and click &quot;Manage rates&quot; for a user, or open a <a href="/dashboard/projects" className="underline">Project</a> to manage its team allocations.
+                Go to <a href="/dashboard/users" className="underline">Users</a> and click &quot;Manage rates&quot; for a user, or open a <a href="/dashboard/projects" className="underline">Project</a> to manage its team allocations. Review critical changes in <a href="/dashboard/approvals" className="underline">Approvals</a>.
               </p>
             </CardContent>
           </Card>

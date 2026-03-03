@@ -131,6 +131,329 @@ paths:
         "404":
           description: User not found
 
+  /users/{id}/timeline:
+    get:
+      summary: User lifecycle timeline, assignment history, and pending requests
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: User timeline payload
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: User not found
+
+  /users/{id}/offboard:
+    post:
+      summary: Request user offboarding (admin only, maker-checker)
+      tags: [Users]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+                effectiveDate: { type: string, format: date }
+      responses:
+        "202":
+          description: Offboarding request queued for approval
+        "400":
+          description: Validation or self-offboarding blocked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: User not found
+
+  /assignments:
+    get:
+      summary: List project assignments
+      tags: [Assignments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: query
+          schema: { type: string }
+        - name: projectId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, paused, ended] }
+      responses:
+        "200":
+          description: Assignment list
+    post:
+      summary: Create assignment (critical/backdated changes queue approval)
+      tags: [Assignments]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, projectId, roleOnProject, startDate]
+              properties:
+                userId: { type: string }
+                projectId: { type: string }
+                roleOnProject: { type: string }
+                allocationPct: { type: number }
+                startDate: { type: string, format: date }
+                endDate: { type: string, format: date, nullable: true }
+      responses:
+        "200":
+          description: Assignment created
+        "202":
+          description: Pending approval
+
+  /assignments/{id}:
+    patch:
+      summary: Update assignment (critical/backdated changes queue approval)
+      tags: [Assignments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleOnProject: { type: string }
+                allocationPct: { type: number }
+                startDate: { type: string, format: date }
+                endDate: { type: string, format: date, nullable: true }
+                status: { type: string, enum: [active, paused, ended] }
+      responses:
+        "200":
+          description: Assignment updated
+        "202":
+          description: Pending approval
+
+  /assignments/{id}/end:
+    post:
+      summary: End assignment
+      tags: [Assignments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endDate]
+              properties:
+                endDate: { type: string, format: date }
+                reason: { type: string }
+      responses:
+        "200":
+          description: Assignment ended
+        "202":
+          description: Pending approval
+
+  /rates:
+    get:
+      summary: List rate cards (admin-only compensation visibility)
+      tags: [Rates]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: query
+          schema: { type: string }
+        - name: projectId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, active, superseded, cancelled] }
+      responses:
+        "200":
+          description: Rate cards
+    post:
+      summary: Submit rate-card create request (maker-checker)
+      tags: [Rates]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, payRate, currency, effectiveFrom]
+              properties:
+                userId: { type: string }
+                projectId: { type: string, nullable: true }
+                payRate: { type: number }
+                billRate: { type: number, nullable: true }
+                currency: { type: string, minLength: 3, maxLength: 3 }
+                effectiveFrom: { type: string, format: date }
+                effectiveTo: { type: string, format: date, nullable: true }
+                changeReason: { type: string, nullable: true }
+      responses:
+        "202":
+          description: Rate change queued for approval
+
+  /rates/{id}:
+    get:
+      summary: Get a rate card
+      tags: [Rates]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Rate card
+    patch:
+      summary: Submit rate-card update request (maker-checker)
+      tags: [Rates]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payRate: { type: number }
+                billRate: { type: number, nullable: true }
+                currency: { type: string, minLength: 3, maxLength: 3 }
+                effectiveFrom: { type: string, format: date }
+                effectiveTo: { type: string, format: date, nullable: true }
+                status: { type: string, enum: [pending, active, superseded, cancelled] }
+                changeReason: { type: string, nullable: true }
+      responses:
+        "202":
+          description: Rate change queued for approval
+
+  /rates/resolve:
+    get:
+      summary: Resolve effective pay/bill rate by date and scope
+      tags: [Rates]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: projectId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Resolved rate
+
+  /admin/change-requests:
+    get:
+      summary: List change requests (admin approvals queue)
+      tags: [Approvals]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, approved, rejected, cancelled] }
+        - name: changeType
+          in: query
+          schema: { type: string, enum: [rate_change, assignment_change, user_access_change] }
+      responses:
+        "200":
+          description: Change request list
+
+  /admin/change-requests/{id}/approve:
+    post:
+      summary: Approve change request (reviewer must differ from requester)
+      tags: [Approvals]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Approved
+        "400":
+          description: Invalid state or maker-checker violation
+
+  /admin/change-requests/{id}/reject:
+    post:
+      summary: Reject change request
+      tags: [Approvals]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          description: Rejected
+
+  /allocations:
+    get:
+      deprecated: true
+      summary: Legacy compatibility endpoint (use /assignments)
+      tags: [Compatibility]
+      responses:
+        "200":
+          description: Compatibility payload
+    post:
+      deprecated: true
+      summary: Legacy compatibility endpoint (use /assignments + /rates)
+      tags: [Compatibility]
+      responses:
+        "200":
+          description: Compatibility payload
+        "202":
+          description: Pending approval for critical/rate change
+
   /projects:
     get:
       summary: List projects (admin/manager only)
@@ -262,7 +585,7 @@ components:
       type: object
       properties:
         role: { type: string, enum: [admin, manager, worker] }
-        status: { type: string, enum: [active, inactive] }
+        status: { type: string, enum: [invited, active, suspended, offboarded, archived] }
       minProperties: 1
     Error:
       type: object

@@ -17,7 +17,7 @@ export default async function TimesheetsPage({
   const where: { userId?: string; status?: string; project?: { orgId: string } } = {
     project: { orgId: org },
   }
-  if (!isAdmin) where.userId = userId
+  if (!isAdmin && userId) where.userId = userId
   if (status) where.status = status
 
   const timesheets = await prisma.timesheet.findMany({

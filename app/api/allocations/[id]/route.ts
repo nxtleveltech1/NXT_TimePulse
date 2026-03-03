@@ -1,24 +1,44 @@
-import { auth } from "@clerk/nextjs/server"
-import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
-import { isAdminOrManager } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { hasCapability, requireCapability } from "@/lib/auth"
+import { createChangeRequest } from "@/lib/change-requests"
+import { serializeForClient } from "@/lib/serialize"
+import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit"
+
+function todayDate() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function deprecationHeaders(extra?: Record<string, string>) {
+  return {
+    Deprecation: "true",
+    Sunset: "Tue, 30 Jun 2026 00:00:00 GMT",
+    Link: '</api/assignments>; rel="successor-version"',
+    ...extra,
+  }
+}
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId, orgId, orgRole } = await auth()
-  if (!userId || !orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminOrManager(orgRole as string)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const auth = await requireCapability("assignments.write")
+  if (!auth) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const rateLimit = await checkDistributedRateLimit(`${auth.orgId}:allocations:${auth.userId}`, 150, 60_000)
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded", resetAt: rateLimit.resetAt },
+      { status: 429 }
+    )
   }
+  const canWriteComp = hasCapability(auth.orgRole, "compensation.write")
 
   const { id } = await params
-  const allocation = await prisma.projectAllocation.findFirst({
-    where: { id, project: { orgId } },
-    include: { user: true, project: true },
+  const assignment = await prisma.projectAssignment.findFirst({
+    where: { id, orgId: auth.orgId },
+    include: { project: { select: { defaultRate: true } } },
   })
-  if (!allocation) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (!assignment) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   let body: unknown
   try {
@@ -28,65 +48,174 @@ export async function PATCH(
   }
 
   const b = body as Record<string, unknown>
-  const hourlyRate = typeof b.hourlyRate === "number" ? b.hourlyRate : undefined
   const roleOnProject = typeof b.roleOnProject === "string" ? b.roleOnProject : undefined
-  const startDate = b.startDate ? new Date(b.startDate as string) : undefined
-  const endDate = b.endDate === null ? null : b.endDate ? new Date(b.endDate as string) : undefined
+  const hourlyRate = typeof b.hourlyRate === "number" ? b.hourlyRate : undefined
+  const startDate = typeof b.startDate === "string" ? b.startDate : undefined
+  const endDate = b.endDate === null ? null : typeof b.endDate === "string" ? b.endDate : undefined
   const isActive = typeof b.isActive === "boolean" ? b.isActive : undefined
 
-  const data: Record<string, unknown> = {}
-  if (hourlyRate !== undefined) data.hourlyRate = hourlyRate
-  if (roleOnProject !== undefined) data.roleOnProject = roleOnProject
-  if (startDate !== undefined) data.startDate = startDate
-  if (endDate !== undefined) data.endDate = endDate
-  if (isActive !== undefined) data.isActive = isActive
-
-  if (Object.keys(data).length === 0) {
-    return NextResponse.json(allocation)
+  if (hourlyRate !== undefined && !canWriteComp) {
+    return NextResponse.json(
+      { error: "Only admins can set compensation rates" },
+      { status: 403 }
+    )
   }
 
-  const updated = await prisma.projectAllocation.update({
-    where: { id },
-    data,
+  const assignmentCritical =
+    (startDate !== undefined && startDate < todayDate()) ||
+    (endDate !== undefined && endDate !== null && endDate < todayDate())
+  if (assignmentCritical) {
+    const requestRow = await createChangeRequest({
+      orgId: auth.orgId,
+      requestedById: auth.userId,
+      changeType: "assignment_change",
+      targetType: "project_assignment",
+      targetId: id,
+      payload: {
+        operation: "update",
+        assignmentId: id,
+        data: {
+          ...(roleOnProject !== undefined ? { roleOnProject } : {}),
+          ...(startDate !== undefined ? { startDate } : {}),
+          ...(endDate !== undefined ? { endDate } : {}),
+          ...(isActive !== undefined ? { status: isActive ? "active" : "ended" } : {}),
+        },
+      },
+      criticalReason: "Backdated assignment update requires approval",
+    })
+    return NextResponse.json(
+      { status: "pending_approval", changeRequestId: requestRow.id },
+      { status: 202, headers: deprecationHeaders() }
+    )
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.projectAssignment.update({
+      where: { id },
+      data: {
+        ...(roleOnProject !== undefined ? { roleOnProject } : {}),
+        ...(startDate !== undefined ? { startDate: new Date(startDate) } : {}),
+        ...(endDate !== undefined ? { endDate: endDate ? new Date(endDate) : null } : {}),
+        ...(isActive !== undefined ? { status: isActive ? "active" : "ended" } : {}),
+        updatedById: auth.userId,
+      },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        project: { select: { id: true, name: true } },
+      },
+    })
+
+    await tx.projectAllocation.updateMany({
+      where: { userId: assignment.userId, projectId: assignment.projectId },
+      data: {
+        ...(roleOnProject !== undefined ? { roleOnProject } : {}),
+        ...(startDate !== undefined ? { startDate: new Date(startDate) } : {}),
+        ...(endDate !== undefined ? { endDate: endDate ? new Date(endDate) : null } : {}),
+        ...(isActive !== undefined ? { isActive } : {}),
+      },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        userId: auth.userId,
+        action: "allocation.updated",
+        entityType: "project_assignment",
+        entityId: id,
+        details: "Updated via compatibility allocations endpoint",
+      },
+    })
+    return row
   })
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      action: "allocation.updated",
-      entityType: "project_allocation",
-      entityId: id,
-      details: `Allocation updated: ${Object.keys(data).join(", ")}`,
-      newValue: JSON.stringify(data),
-    },
+
+  let rateChangeRequestId: string | null = null
+  if (hourlyRate !== undefined && canWriteComp) {
+    const requestRow = await createChangeRequest({
+      orgId: auth.orgId,
+      requestedById: auth.userId,
+      changeType: "rate_change",
+      targetType: "rate_card",
+      payload: {
+        operation: "create",
+        data: {
+          userId: assignment.userId,
+          projectId: assignment.projectId,
+          payRate: hourlyRate,
+          billRate: null,
+          currency: "USD",
+          effectiveFrom: startDate ?? todayDate(),
+          effectiveTo: endDate ?? null,
+          changeReason: "Submitted via legacy allocations update endpoint",
+        },
+      },
+      criticalReason: "Rate change requires maker-checker approval",
+    })
+    rateChangeRequestId = requestRow.id
+  }
+
+  const compat = {
+    id: updated.id,
+    userId: updated.userId,
+    projectId: updated.projectId,
+    roleOnProject: updated.roleOnProject,
+    hourlyRate: hourlyRate ?? 0,
+    startDate: updated.startDate,
+    endDate: updated.endDate,
+    isActive: updated.status === "active" || updated.status === "paused",
+    user: updated.user,
+    project: updated.project,
+    ...(rateChangeRequestId ? { rateChangeRequestId } : {}),
+  }
+
+  return NextResponse.json(serializeForClient(compat), {
+    headers: deprecationHeaders(rateChangeRequestId ? { "X-Rate-Change-Request-Id": rateChangeRequestId } : {}),
   })
-  return NextResponse.json(updated)
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { userId, orgId, orgRole } = await auth()
-  if (!userId || !orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (!isAdminOrManager(orgRole as string)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const auth = await requireCapability("assignments.write")
+  if (!auth) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const rateLimit = await checkDistributedRateLimit(`${auth.orgId}:allocations:${auth.userId}`, 150, 60_000)
+  if (!rateLimit.ok) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded", resetAt: rateLimit.resetAt },
+      { status: 429 }
+    )
   }
 
   const { id } = await params
-  const allocation = await prisma.projectAllocation.findFirst({
-    where: { id, project: { orgId } },
+  const assignment = await prisma.projectAssignment.findFirst({
+    where: { id, orgId: auth.orgId },
   })
-  if (!allocation) return NextResponse.json({ error: "Not found" }, { status: 404 })
+  if (!assignment) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  await prisma.projectAllocation.delete({ where: { id } })
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      action: "allocation.deleted",
-      entityType: "project_allocation",
-      entityId: id,
-      details: `Allocation deleted: user ${allocation.userId} → project ${allocation.projectId}`,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.projectAssignment.update({
+      where: { id },
+      data: {
+        status: "ended",
+        endDate: new Date(),
+        updatedById: auth.userId,
+      },
+    })
+    await tx.projectAllocation.deleteMany({
+      where: { userId: assignment.userId, projectId: assignment.projectId },
+    })
+    await tx.auditLog.create({
+      data: {
+        userId: auth.userId,
+        action: "allocation.deleted",
+        entityType: "project_assignment",
+        entityId: id,
+        details: "Deleted via compatibility allocations endpoint",
+      },
+    })
   })
-  return NextResponse.json({ success: true })
+
+  return NextResponse.json(
+    { success: true },
+    { headers: deprecationHeaders() }
+  )
 }

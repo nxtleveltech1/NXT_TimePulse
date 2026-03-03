@@ -40,11 +40,15 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
     setRemoving(true)
     try {
       const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.error ?? "Failed to remove user")
+        throw new Error(data.error ?? "Failed to remove user")
       }
-      toast.success(`${displayName} removed from organization`)
+      if (data?.status === "pending_approval") {
+        toast.success(`${displayName} offboarding submitted for approval`)
+      } else {
+        toast.success(`${displayName} removed from organization`)
+      }
       onOpenChange(false)
       router.refresh()
     } catch (e) {
@@ -58,9 +62,9 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove user</AlertDialogTitle>
+          <AlertDialogTitle>Request offboarding</AlertDialogTitle>
           <AlertDialogDescription>
-            Remove {displayName} from the organization? They will lose access immediately. This cannot be undone.
+            Submit offboarding for {displayName}? A second admin must approve before access is revoked.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
