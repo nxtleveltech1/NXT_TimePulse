@@ -1,207 +1,1274 @@
 openapi: 3.0.3
 info:
   title: TimePulse API
-  description: Geo-tracked workforce timesheet management
-  version: 1.0.0
+  description: |
+    Geo-tracked workforce timesheet and resource management API.
+    All endpoints require Clerk JWT authentication (Bearer token from Clerk session).
+    Role-based access: org:admin > org:manager > org:member.
+  version: 1.1.0
+  contact:
+    name: NXT TIME PULSE
+    url: https://timepulse.nxtdotc.online
 
 servers:
   - url: /api
     description: API base
 
+security:
+  - bearerAuth: []
+
+tags:
+  - name: geoevent
+    description: Geofence entry/exit events
+  - name: projects
+    description: Project management
+  - name: geozones
+    description: Geozone management
+  - name: timesheets
+    description: Timesheet management
+  - name: users
+    description: User management
+  - name: assignments
+    description: Project assignments
+  - name: allocations
+    description: Project allocations (deprecated — use assignments)
+  - name: leave
+    description: Leave requests
+  - name: rates
+    description: Rate cards and compensation
+  - name: admin
+    description: Admin operations (change requests)
+  - name: financials
+    description: Financial reports
+  - name: reports
+    description: Payroll and hour reports
+  - name: audit
+    description: Audit log
+  - name: health
+    description: System health
+
 paths:
+
+  # ─── Health ────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: System healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: System degraded
+
+  # ─── Geoevent ──────────────────────────────────────────────────────────────
+
   /geoevent:
     post:
-      summary: Geofence event (entry/exit)
-      security:
-        - bearerAuth: []
+      tags: [geoevent]
+      summary: Geofence entry or exit
+      description: Records a geofence entry or exit event. Creates or closes a timesheet automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeoEventRequest"
+      responses:
+        "200":
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeoEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimit"
+
+  # ─── Projects ──────────────────────────────────────────────────────────────
+
+  /projects:
+    get:
+      tags: [projects]
+      summary: List projects
+      responses:
+        "200":
+          description: Projects list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      tags: [projects]
+      summary: Create project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "200":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /projects/{id}:
+    delete:
+      tags: [projects]
+      summary: Delete project
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{id}/geozones:
+    get:
+      tags: [projects, geozones]
+      summary: List geozones for project
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+        - name: includeGeometry
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Geozones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Geozone"
+    post:
+      tags: [projects, geozones]
+      summary: Create geozone for project
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGeozoneRequest"
+      responses:
+        "200":
+          description: Created geozone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Geozone"
+
+  # ─── Geozones ──────────────────────────────────────────────────────────────
+
+  /geozones:
+    get:
+      tags: [geozones]
+      summary: List all geozones for org
+      responses:
+        "200":
+          description: Geozones with geometry
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Geozone"
+
+  /geozones/{id}:
+    get:
+      tags: [geozones]
+      summary: Get geozone
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Geozone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Geozone"
+    patch:
+      tags: [geozones]
+      summary: Update geozone
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGeozoneRequest"
+      responses:
+        "200":
+          description: Updated geozone
+    delete:
+      tags: [geozones]
+      summary: Delete geozone
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Deleted
+
+  # ─── Timesheets ────────────────────────────────────────────────────────────
+
+  /timesheets:
+    get:
+      tags: [timesheets]
+      summary: List timesheets
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/TimesheetStatus"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Timesheets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Timesheet"
+    post:
+      tags: [timesheets]
+      summary: Create timesheet (manual clock-in/out)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTimesheetRequest"
+      responses:
+        "200":
+          description: Created timesheet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Timesheet"
+
+  /timesheets/{id}:
+    get:
+      tags: [timesheets]
+      summary: Get timesheet
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Timesheet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Timesheet"
+    patch:
+      tags: [timesheets]
+      summary: Update timesheet (approve / reject / edit)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTimesheetRequest"
+      responses:
+        "200":
+          description: Updated timesheet
+
+  # ─── Users ─────────────────────────────────────────────────────────────────
+
+  /users:
+    get:
+      tags: [users]
+      summary: List users
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /users/create:
+    post:
+      tags: [users]
+      summary: Create user (admin creates account directly)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "200":
+          description: Created user
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /users/invite:
+    post:
+      tags: [users]
+      summary: Invite user by email
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [lat, lon, geozoneId, eventType]
+              required: [emailAddress]
               properties:
-                lat: { type: number }
-                lon: { type: number }
-                geozoneId: { type: string }
-                eventType: { type: string, enum: [entry, exit] }
-                deviceInfo: { type: object }
+                emailAddress:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [org:admin, org:manager, org:member]
       responses:
-        "200": { description: Success }
-        "400": { description: Outside geozone or invalid input }
-        "401": { description: Unauthorized }
-        "429": { description: Rate limit exceeded }
+        "200":
+          description: Invitation sent
 
-  /projects:
-    get:
-      summary: List projects
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200": { description: List of projects }
+  /users/add:
     post:
-      summary: Create project
-      security: [{ bearerAuth: [] }]
+      tags: [users]
+      summary: Add existing Clerk user to org
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
-              required: [name]
+              required: [userId]
               properties:
-                name: { type: string }
-                client: { type: string }
-                description: { type: string }
-                status: { type: string }
-                defaultRate: { type: number }
-                address: { type: string }
+                userId:
+                  type: string
+                role:
+                  type: string
       responses:
-        "200": { description: Created project }
+        "200":
+          description: User added
 
-  /projects/{id}/geozones:
-    get:
-      summary: List geozones for project
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        "200": { description: List of geozones }
-    post:
-      summary: Create geozone
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, polygon]
-              properties:
-                name: { type: string }
-                polygon: { type: array, items: { type: array, items: { type: number } } }
-                description: { type: string }
-                radiusM: { type: number }
-                color: { type: string }
-                isActive: { type: boolean }
-      responses:
-        "200": { description: Created geozone }
-
-  /geozones/{id}:
-    get:
-      summary: Get geozone
-      security: [{ bearerAuth: [] }]
+  /users/{id}:
     patch:
-      summary: Update geozone
-      security: [{ bearerAuth: [] }]
-    delete:
-      summary: Delete geozone
-      security: [{ bearerAuth: [] }]
-
-  /timesheets:
-    get:
-      summary: List timesheets
-      security: [{ bearerAuth: [] }]
+      tags: [users]
+      summary: Update user role or status
+      description: Role downgrades and status changes require maker-checker approval.
       parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user
+        "202":
+          description: Change request pending approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeRequestPending"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      tags: [users]
+      summary: Request user offboarding
+      description: Creates a change request requiring second admin approval.
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "202":
+          description: Offboard change request created
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /users/{id}/timeline:
+    get:
+      tags: [users]
+      summary: Get user lifecycle timeline
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: User timeline with assignments, rates, lifecycle events
+
+  /users/{id}/offboard:
+    post:
+      tags: [users]
+      summary: Submit offboarding request with reason
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                effectiveDate:
+                  type: string
+                  format: date
+      responses:
+        "202":
+          description: Offboard request created
+
+  # ─── Assignments ───────────────────────────────────────────────────────────
+
+  /assignments:
+    get:
+      tags: [assignments]
+      summary: List assignments
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
         - name: projectId
           in: query
-          schema: { type: string }
+          schema:
+            type: string
         - name: status
           in: query
-          schema: { type: string }
-        - name: from
-          in: query
-          schema: { type: string }
-        - name: to
-          in: query
-          schema: { type: string }
+          schema:
+            $ref: "#/components/schemas/AssignmentStatus"
       responses:
-        "200": { description: List of timesheets }
+        "200":
+          description: Assignments
     post:
-      summary: Create timesheet (manual)
-      security: [{ bearerAuth: [] }]
+      tags: [assignments]
+      summary: Create assignment
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [projectId]
-              properties:
-                projectId: { type: string }
-                geozoneId: { type: string }
-                clockIn: { type: string, format: date-time }
-                clockOut: { type: string, format: date-time }
-                notes: { type: string }
+              $ref: "#/components/schemas/CreateAssignmentRequest"
       responses:
-        "200": { description: Created timesheet }
+        "200":
+          description: Created assignment
 
-  /timesheets/{id}:
-    get:
-      summary: Get timesheet
-      security: [{ bearerAuth: [] }]
+  /assignments/{id}:
     patch:
-      summary: Update timesheet (approve/reject/edit)
-      security: [{ bearerAuth: [] }]
+      tags: [assignments]
+      summary: Update assignment
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Updated assignment
+
+  /assignments/{id}/end:
+    post:
+      tags: [assignments]
+      summary: End assignment
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
       requestBody:
         content:
           application/json:
             schema:
               type: object
               properties:
-                status: { type: string, enum: [pending, approved, rejected, flagged] }
-                clockOut: { type: string, format: date-time }
-                notes: { type: string }
+                endDate:
+                  type: string
+                  format: date
       responses:
-        "200": { description: Updated timesheet }
+        "200":
+          description: Assignment ended
 
-  /users:
-    get:
-      summary: List users
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200": { description: List of users }
+  # ─── Allocations (deprecated) ──────────────────────────────────────────────
 
   /allocations:
     get:
-      summary: List project allocations
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - name: projectId
-          in: query
-          schema: { type: string }
-        - name: userId
-          in: query
-          schema: { type: string }
+      tags: [allocations]
+      summary: "List allocations [DEPRECATED — use /assignments]"
+      deprecated: true
       responses:
-        "200": { description: List of allocations }
+        "200":
+          description: Allocations
     post:
-      summary: Create allocation
-      security: [{ bearerAuth: [] }]
+      tags: [allocations]
+      summary: "Create allocation [DEPRECATED]"
+      deprecated: true
+      responses:
+        "200":
+          description: Created allocation
+
+  /allocations/{id}:
+    patch:
+      tags: [allocations]
+      summary: "Update allocation [DEPRECATED]"
+      deprecated: true
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Updated
+    delete:
+      tags: [allocations]
+      summary: "Delete allocation [DEPRECATED]"
+      deprecated: true
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Deleted
+
+  # ─── Leave ─────────────────────────────────────────────────────────────────
+
+  /leave:
+    get:
+      tags: [leave]
+      summary: List leave requests
+      responses:
+        "200":
+          description: Leave requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaveRequest"
+    post:
+      tags: [leave]
+      summary: Create leave request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeaveRequest"
+      responses:
+        "200":
+          description: Created leave request
+
+  /leave/{id}:
+    patch:
+      tags: [leave]
+      summary: Update leave (approve / reject / cancel)
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              required: [userId, projectId, roleOnProject]
               properties:
-                userId: { type: string }
-                projectId: { type: string }
-                roleOnProject: { type: string }
-                hourlyRate: { type: number }
-                startDate: { type: string, format: date }
-                endDate: { type: string, format: date }
+                status:
+                  type: string
+                  enum: [approved, rejected, cancelled]
+                notes:
+                  type: string
       responses:
-        "200": { description: Created allocation }
+        "200":
+          description: Updated leave request
+
+  # ─── Rates ─────────────────────────────────────────────────────────────────
+
+  /rates:
+    get:
+      tags: [rates]
+      summary: List rate cards
+      responses:
+        "200":
+          description: Rate cards
+    post:
+      tags: [rates]
+      summary: Create rate card change request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRateCardRequest"
+      responses:
+        "202":
+          description: Rate change pending approval
+
+  /rates/{id}:
+    get:
+      tags: [rates]
+      summary: Get rate card
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Rate card
+    patch:
+      tags: [rates]
+      summary: Update rate card
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Updated
+
+  /rates/resolve:
+    get:
+      tags: [rates]
+      summary: Resolve effective rate for user + project + date
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: projectId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Resolved pay and bill rates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payRate:
+                    type: number
+                  billRate:
+                    type: number
+
+  # ─── Admin Change Requests ─────────────────────────────────────────────────
+
+  /admin/change-requests:
+    get:
+      tags: [admin]
+      summary: List pending change requests (org:admin only)
+      responses:
+        "200":
+          description: Change requests
+
+  /admin/change-requests/{id}/approve:
+    post:
+      tags: [admin]
+      summary: Approve change request
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Approved and applied
+
+  /admin/change-requests/{id}/reject:
+    post:
+      tags: [admin]
+      summary: Reject change request
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Rejected
+
+  # ─── Financials ────────────────────────────────────────────────────────────
+
+  /financials/summary:
+    get:
+      tags: [financials]
+      summary: Financial summary (revenue, cost, margin)
+      responses:
+        "200":
+          description: Summary
+
+  /financials/revenue-trend:
+    get:
+      tags: [financials]
+      summary: Revenue and cost trend by period
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+      responses:
+        "200":
+          description: Trend data
+
+  /financials/project/{id}:
+    get:
+      tags: [financials]
+      summary: Financial breakdown for a project
+      parameters:
+        - $ref: "#/components/parameters/IdParam"
+      responses:
+        "200":
+          description: Project financials
+
+  # ─── Reports ───────────────────────────────────────────────────────────────
+
+  /reports/payroll:
+    get:
+      tags: [reports]
+      summary: Payroll CSV export
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /reports/pdf:
+    get:
+      tags: [reports]
+      summary: Payroll PDF export
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  # ─── Audit ─────────────────────────────────────────────────────────────────
+
+  /audit:
+    get:
+      tags: [audit]
+      summary: Audit log
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Audit log entries
+
+  # ─── Resources ─────────────────────────────────────────────────────────────
+
+  /resources/overtime:
+    get:
+      tags: [rates]
+      summary: Get overtime policy
+      responses:
+        "200":
+          description: Overtime policy
+    patch:
+      tags: [rates]
+      summary: Update overtime policy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                weeklyThresholdHours:
+                  type: number
+                dailyThresholdHours:
+                  type: number
+                multiplier:
+                  type: number
+      responses:
+        "200":
+          description: Updated policy
+
+# ─── Components ─────────────────────────────────────────────────────────────
 
 components:
+
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: Clerk session JWT
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimit:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+
+    ChangeRequestPending:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending_approval]
+        changeRequestId:
+          type: string
+        message:
+          type: string
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+        checks:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [ok, error]
+                latencyMs:
+                  type: number
+
+    TimesheetStatus:
+      type: string
+      enum: [pending, approved, rejected, flagged]
+
+    AssignmentStatus:
+      type: string
+      enum: [active, paused, ended]
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        client:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        orgId:
+          type: string
+        defaultRate:
+          type: number
+        address:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        client:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, completed]
+        defaultRate:
+          type: number
+        address:
+          type: string
+
+    Geozone:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        projectId:
+          type: string
+        isActive:
+          type: boolean
+        radiusM:
+          type: number
+        color:
+          type: string
+        description:
+          type: string
+        polygon:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+
+    CreateGeozoneRequest:
+      type: object
+      required: [name, polygon]
+      properties:
+        name:
+          type: string
+        polygon:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+        description:
+          type: string
+        radiusM:
+          type: number
+        color:
+          type: string
+        isActive:
+          type: boolean
+
+    UpdateGeozoneRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        isActive:
+          type: boolean
+        color:
+          type: string
+        description:
+          type: string
+
+    GeoEventRequest:
+      type: object
+      required: [lat, lon, geozoneId, eventType]
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          minimum: -180
+          maximum: 180
+        geozoneId:
+          type: string
+        eventType:
+          type: string
+          enum: [entry, exit]
+        deviceInfo:
+          type: object
+
+    GeoEventResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        timesheetId:
+          type: string
+
+    Timesheet:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        projectId:
+          type: string
+        geozoneId:
+          type: string
+        date:
+          type: string
+          format: date
+        clockIn:
+          type: string
+          format: date-time
+        clockOut:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        breakMinutes:
+          type: integer
+        overtimeMinutes:
+          type: integer
+        status:
+          $ref: "#/components/schemas/TimesheetStatus"
+        source:
+          type: string
+          enum: [manual, geofence]
+        notes:
+          type: string
+
+    CreateTimesheetRequest:
+      type: object
+      required: [projectId]
+      properties:
+        projectId:
+          type: string
+        geozoneId:
+          type: string
+        clockIn:
+          type: string
+          format: date-time
+        clockOut:
+          type: string
+          format: date-time
+        notes:
+          type: string
+
+    UpdateTimesheetRequest:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/TimesheetStatus"
+        clockOut:
+          type: string
+          format: date-time
+        notes:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [admin, manager, worker]
+        status:
+          type: string
+          enum: [invited, active, suspended, offboarded, archived]
+        employmentType:
+          type: string
+          enum: [employee, contractor, temp]
+        phone:
+          type: string
+        employeeCode:
+          type: string
+        orgId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [emailAddress, firstName, lastName]
+      properties:
+        emailAddress:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [admin, manager, worker]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [admin, manager, worker]
+        status:
+          type: string
+          enum: [active, suspended, offboarded, archived]
+
+    CreateAssignmentRequest:
+      type: object
+      required: [userId, projectId, roleOnProject]
+      properties:
+        userId:
+          type: string
+        projectId:
+          type: string
+        roleOnProject:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    LeaveRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, cancelled]
+
+    CreateLeaveRequest:
+      type: object
+      required: [type, startDate, endDate]
+      properties:
+        type:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        reason:
+          type: string
+
+    CreateRateCardRequest:
+      type: object
+      required: [userId, payRate]
+      properties:
+        userId:
+          type: string
+        projectId:
+          type: string
+        payRate:
+          type: number
+        billRate:
+          type: number
+        effectiveFrom:
+          type: string
+          format: date
+        reason:
+          type: string

@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResourcesContent } from "./resources-content"
@@ -57,7 +58,7 @@ export default async function ResourcesPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Go to <a href="/dashboard/users" className="underline">Users</a> and click &quot;Manage rates&quot; for a user, or open a <a href="/dashboard/projects" className="underline">Project</a> to manage its team allocations. Review critical changes in <a href="/dashboard/approvals" className="underline">Approvals</a>.
+                Go to <Link href="/dashboard/users" className="underline">Users</Link> and click &quot;Manage rates&quot; for a user, or open a <Link href="/dashboard/projects" className="underline">Project</Link> to manage its team allocations. Review critical changes in <Link href="/dashboard/approvals" className="underline">Approvals</Link>.
               </p>
             </CardContent>
           </Card>

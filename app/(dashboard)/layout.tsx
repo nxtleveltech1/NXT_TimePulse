@@ -16,7 +16,8 @@ import {
   Wallet,
   CheckSquare,
 } from "lucide-react"
-export const dynamic = "force-dynamic"
+// Auth-dependent layout — revalidate every 60 seconds, not force-dynamic on every request
+export const revalidate = 60
 
 import {
   Sidebar,
@@ -25,7 +26,6 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
@@ -34,6 +34,9 @@ import { Badge } from "@/components/ui/badge"
 import { ModeToggle } from "@/components/mode-toggle"
 import { BrandLogo } from "@/components/brand-logo"
 import { isAdminOrManager } from "@/lib/auth"
+import { AppBreadcrumbs } from "@/components/breadcrumbs"
+import { NavLink } from "@/components/nav-link"
+import { NotificationBell } from "@/components/notification-bell"
 
 const mainNavItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -77,12 +80,7 @@ export default async function DashboardLayout({
               <SidebarMenu>
                 {mainNavItems.map((item) => (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild>
-                      <Link href={item.href}>
-                        <item.icon className="h-4 w-4" />
-                        {item.label}
-                      </Link>
-                    </SidebarMenuButton>
+                    <NavLink href={item.href} label={item.label} icon={item.icon} />
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -100,12 +98,7 @@ export default async function DashboardLayout({
                     .filter((item) => !item.adminOnly || isSuperAdmin)
                     .map((item) => (
                     <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild>
-                        <Link href={item.href}>
-                          <item.icon className="h-4 w-4" />
-                          {item.label}
-                        </Link>
-                      </SidebarMenuButton>
+                      <NavLink href={item.href} label={item.label} icon={item.icon} />
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
@@ -129,13 +122,17 @@ export default async function DashboardLayout({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            <NotificationBell />
             <ModeToggle />
             <div className="flex min-h-[44px] min-w-[44px] items-center justify-center">
               <UserButton afterSignOutUrl="/" />
             </div>
           </div>
         </header>
-        <div className="p-4 md:p-6">{children}</div>
+        <div className="p-4 md:p-6">
+          <AppBreadcrumbs />
+          {children}
+        </div>
       </main>
     </div>
     </SidebarProvider>

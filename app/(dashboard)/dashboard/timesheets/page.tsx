@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { isAdminOrManager } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TimesheetsTable } from "./timesheets-table"
+import { TimesheetsViewToggle } from "./timesheets-view-toggle"
 
 export default async function TimesheetsPage({
   searchParams,
@@ -53,7 +54,15 @@ export default async function TimesheetsPage({
           <CardDescription>{timesheets.length} entries</CardDescription>
         </CardHeader>
         <CardContent>
-          <TimesheetsTable timesheets={timesheets} isAdmin={isAdmin} />
+          <TimesheetsViewToggle
+            tableView={<TimesheetsTable timesheets={timesheets} isAdmin={isAdmin} />}
+            entries={timesheets.map((t) => ({
+              id: t.id,
+              date: t.date,
+              label: t.project.name,
+              status: t.status,
+            }))}
+          />
         </CardContent>
       </Card>
     </div>

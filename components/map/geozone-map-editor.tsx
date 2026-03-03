@@ -35,6 +35,7 @@ export function GeozoneMapEditor({
   height?: number
 }) {
   const mapRef = useRef<MapRef>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const drawRef = useRef<any>(null)
   const initialSetRef = useRef(false)
   const cleanupRef = useRef<(() => void) | null>(null)
@@ -48,6 +49,7 @@ export function GeozoneMapEditor({
     const draw = drawRef.current
     if (!draw) return
     const data = draw.getAll()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const poly = data.features.find((f: any) => f.geometry.type === "Polygon")
     if (poly && poly.geometry.type === "Polygon" && poly.geometry.coordinates[0]) {
       const coords = poly.geometry.coordinates[0].map(([lng, lat]: [number, number]) => [lng, lat] as Coord)

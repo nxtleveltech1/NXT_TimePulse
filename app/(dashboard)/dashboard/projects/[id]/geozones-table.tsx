@@ -29,7 +29,7 @@ import type { Geozone } from "@/generated/prisma"
 
 export function GeozonesTable({
   geozones,
-  projectId,
+  projectId: _projectId,
 }: {
   geozones: Geozone[]
   projectId: string

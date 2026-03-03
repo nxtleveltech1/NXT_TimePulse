@@ -1,16 +1,10 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { type ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +12,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
-import { Pencil, MoreHorizontal, UserMinus, Wallet } from "lucide-react"
+import { MoreHorizontal, Pencil, UserMinus, Wallet } from "lucide-react"
 import { UserEditDialog } from "./user-edit-dialog"
 import { UserRemoveDialog } from "./user-remove-dialog"
+import { DataTable } from "@/components/ui/data-table"
+import { DataTableColumnHeader } from "@/components/ui/data-table-column-header"
 
 export type UserWithCount = {
   id: string
@@ -30,6 +26,13 @@ export type UserWithCount = {
   role: string
   status: string
   _count: { timesheets: number; allocations: number }
+}
+
+const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  active: "default",
+  suspended: "secondary",
+  offboarded: "destructive",
+  archived: "outline",
 }
 
 export function UsersTable({
@@ -44,78 +47,135 @@ export function UsersTable({
   const [editingUser, setEditingUser] = useState<UserWithCount | null>(null)
   const [removingUser, setRemovingUser] = useState<UserWithCount | null>(null)
 
-  if (users.length === 0) {
-    return (
-      <div className="py-12 text-center text-muted-foreground">
-        No users yet. Invite users to get started.
-      </div>
-    )
-  }
+  const columns: ColumnDef<UserWithCount>[] = [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 40,
+    },
+    {
+      accessorKey: "firstName",
+      id: "name",
+      accessorFn: (row) => [row.firstName, row.lastName].filter(Boolean).join(" ") || "-",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
+      cell: ({ row }) => {
+        const name = [row.original.firstName, row.original.lastName].filter(Boolean).join(" ") || "-"
+        return (
+          <Link
+            href={`/dashboard/users/${row.original.id}`}
+            className="font-medium underline-offset-2 hover:underline"
+          >
+            {name}
+          </Link>
+        )
+      },
+    },
+    {
+      accessorKey: "email",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+      cell: ({ getValue }) => getValue() ?? "-",
+    },
+    {
+      accessorKey: "role",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Role" />,
+      cell: ({ getValue }) => (
+        <Badge variant="secondary" className="capitalize">
+          {getValue() as string}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ getValue }) => {
+        const status = getValue() as string
+        return (
+          <Badge variant={statusVariant[status] ?? "secondary"} className="capitalize">
+            {status}
+          </Badge>
+        )
+      },
+    },
+    {
+      accessorKey: "_count.timesheets",
+      id: "timesheets",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Timesheets" />,
+    },
+    {
+      accessorKey: "_count.allocations",
+      id: "allocations",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Allocations" />,
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      size: 60,
+      cell: ({ row }) => {
+        const u = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canManageComp && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/dashboard/resources/users/${u.id}`}>
+                    <Wallet className="mr-2 h-4 w-4" />
+                    Manage rates
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => setEditingUser(u)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit role/status
+              </DropdownMenuItem>
+              {u.id !== currentUserId && (
+                <DropdownMenuItem
+                  onClick={() => setRemovingUser(u)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <UserMinus className="mr-2 h-4 w-4" />
+                  Request offboard
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="sticky left-0 z-10 bg-background">Name</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Timesheets</TableHead>
-            <TableHead>Allocations</TableHead>
-            <TableHead className="w-[100px]">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((u) => (
-            <TableRow key={u.id}>
-              <TableCell className="sticky left-0 z-10 bg-background font-medium">
-                <Link href={`/dashboard/users/${u.id}`} className="underline-offset-2 hover:underline">
-                  {[u.firstName, u.lastName].filter(Boolean).join(" ") || "-"}
-                </Link>
-              </TableCell>
-              <TableCell>{u.email ?? "-"}</TableCell>
-              <TableCell><Badge variant="secondary">{u.role}</Badge></TableCell>
-              <TableCell><Badge variant={u.status === "active" ? "default" : "secondary"}>{u.status}</Badge></TableCell>
-              <TableCell>{u._count.timesheets}</TableCell>
-              <TableCell>{u._count.allocations}</TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Actions</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {canManageComp && (
-                      <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/resources/users/${u.id}`}>
-                          <Wallet className="mr-2 h-4 w-4" />
-                          Manage rates
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => setEditingUser(u)}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit role/status
-                    </DropdownMenuItem>
-                    {u.id !== currentUserId && (
-                      <DropdownMenuItem
-                        onClick={() => setRemovingUser(u)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <UserMinus className="mr-2 h-4 w-4" />
-                        Request offboard
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <DataTable
+        columns={columns}
+        data={users}
+        searchColumn="name"
+        searchPlaceholder="Search users..."
+        pageSize={20}
+      />
       {editingUser && (
         <UserEditDialog
           user={editingUser}
@@ -133,4 +193,3 @@ export function UsersTable({
     </>
   )
 }
-

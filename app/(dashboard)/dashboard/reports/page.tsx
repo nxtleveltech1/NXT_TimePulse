@@ -1,6 +1,5 @@
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ReportsContent } from "./reports-content"
 import { isAdminOrManager } from "@/lib/auth"
 

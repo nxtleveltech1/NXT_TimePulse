@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { ClerkProvider } from "@clerk/nextjs"
 import { ThemeProvider } from "@/components/theme-provider"
+import { QueryProvider } from "@/components/query-provider"
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -54,9 +55,11 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <QueryProvider>
+              {children}
+            </QueryProvider>
             <Analytics />
-            <Toaster />
+            <Toaster richColors closeButton />
           </ThemeProvider>
         </body>
       </html>

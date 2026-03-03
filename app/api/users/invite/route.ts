@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { clerkClient } from "@clerk/nextjs/server"
-import { prisma } from "@/lib/prisma"
+
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { z } from "zod"

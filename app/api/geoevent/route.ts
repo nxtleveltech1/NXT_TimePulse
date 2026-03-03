@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma"
-import { checkRateLimit } from "@/lib/rate-limit"
+import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit"
 
 const geoeventSchema = {
   lat: (v: unknown) => typeof v === "number" && v >= -90 && v <= 90,
@@ -17,8 +17,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { ok, remaining } = checkRateLimit(`geoevent:${userId}`)
-  if (!ok) {
+  const rateLimit = await checkDistributedRateLimit(`geoevent:${userId}`, 60, 60_000)
+  if (!rateLimit.ok) {
     return NextResponse.json(
       { error: "Rate limit exceeded" },
       { status: 429, headers: { "Retry-After": "60" } }

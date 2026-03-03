@@ -30,6 +30,7 @@ const capabilityMap: Record<"org:admin" | "org:manager" | "org:member", Set<AppC
   "org:manager": new Set<AppCapability>([
     "users.read",
     "users.write",
+    "users.offboard",
     "assignments.read",
     "assignments.write",
     "audit.read",

@@ -8,6 +8,7 @@ import { userUpdateSchema } from "@/lib/schemas/user"
 import { createChangeRequest } from "@/lib/change-requests"
 import { logLifecycleEvent } from "@/lib/lifecycle"
 import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit"
+import { notifyOffboardRequest } from "@/lib/notifications"
 
 const roleToClerk = {
   admin: "org:admin",
@@ -103,12 +104,8 @@ export async function PATCH(
   }
 
   const previous = { role: existing.role, status: existing.status }
-  const updated = await prisma.user.update({
-    where: { id },
-    data: updates,
-  })
 
-  // Sync role to Clerk org membership
+  // Sync role to Clerk org membership before committing DB change
   if (role !== undefined) {
     try {
       const clerk = await clerkClient()
@@ -117,10 +114,19 @@ export async function PATCH(
         userId: id,
         role: roleToClerk[role as keyof typeof roleToClerk],
       })
-    } catch {
-      // DB updated; Clerk sync failed - log but don't fail
+    } catch (clerkErr) {
+      console.error("[users PATCH] Clerk sync failed, aborting DB update:", clerkErr)
+      return NextResponse.json(
+        { error: "Failed to sync role with identity provider. No changes were saved." },
+        { status: 502 }
+      )
     }
   }
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: updates,
+  })
 
   await prisma.auditLog.create({
     data: {
@@ -213,6 +219,13 @@ export async function DELETE(
       details: `Offboarding requested: ${existing.email ?? id}`,
     },
   })
+
+  await notifyOffboardRequest({
+    orgId: org,
+    targetUserId: id,
+    targetUserEmail: existing.email,
+    requestedById: userId,
+  }).catch(() => {})
 
   return NextResponse.json(
     {

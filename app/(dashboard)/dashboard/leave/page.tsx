@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LeaveRequestForm } from "./leave-request-form"
 import { LeaveRequestList } from "./leave-request-list"
+import { LeaveCalendar } from "./leave-calendar"
 import { isAdminOrManager } from "@/lib/auth"
 
 export default async function LeavePage() {
@@ -50,6 +51,16 @@ export default async function LeavePage() {
       </div>
 
       <LeaveRequestForm />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Leave calendar</CardTitle>
+          <CardDescription>Visual overview of leave periods</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LeaveCalendar leaves={serialized} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -58,6 +58,11 @@ export function ReportsContent({
     window.open(url, "_blank")
   }
 
+  function exportPdf() {
+    const url = `/api/reports/pdf?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+    window.open(url, "_blank")
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
@@ -89,6 +94,10 @@ export function ReportsContent({
         <Button onClick={exportCsv} variant="outline" size="lg" className="min-h-[44px]">
           <Download className="mr-2 h-4 w-4" />
           Export CSV
+        </Button>
+        <Button onClick={exportPdf} variant="outline" size="lg" className="min-h-[44px]">
+          <Download className="mr-2 h-4 w-4" />
+          Export PDF
         </Button>
       </div>
 

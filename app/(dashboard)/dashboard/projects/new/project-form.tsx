@@ -37,7 +37,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-export function ProjectForm({ orgId }: { orgId: string }) {
+export function ProjectForm({ orgId: _orgId }: { orgId: string }) {
   const router = useRouter()
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
