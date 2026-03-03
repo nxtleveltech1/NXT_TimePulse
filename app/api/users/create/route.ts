@@ -105,7 +105,7 @@ export async function POST(req: Request) {
         firstName,
         lastName,
         phone: normalizedPhone ?? null,
-        status: "invited",
+        status: "active",
         updatedAt: new Date(),
       },
       update: {
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
         firstName,
         lastName,
         phone: normalizedPhone ?? null,
-        status: "invited",
+        status: "active",
         updatedAt: new Date(),
       },
     })
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
       orgId: org,
       userId: newUser.id,
       actorUserId: userId,
-      eventType: "invited",
+      eventType: "created",
       metadata: { source: "create_user", role },
     }).catch(() => {})
 
