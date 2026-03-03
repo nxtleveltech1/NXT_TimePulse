@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { UserButton } from "@clerk/nextjs"
 import Link from "next/link"
-import Image from "next/image"
 import {
   LayoutDashboard,
   FolderKanban,
@@ -31,6 +30,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
+import { ModeToggle } from "@/components/mode-toggle"
+import { BrandLogo } from "@/components/brand-logo"
 import { isAdminOrManager } from "@/lib/auth"
 
 const mainNavItems = [
@@ -66,14 +67,7 @@ export default async function DashboardLayout({
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <Link href="/dashboard" className="flex items-center py-2">
-                <Image
-                  src="/timepulse-logo.png"
-                  alt="NXT TIME PULSE"
-                  width={140}
-                  height={40}
-                  className="h-8 w-auto object-contain"
-                  priority
-                />
+                <BrandLogo height={32} />
               </Link>
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -120,14 +114,7 @@ export default async function DashboardLayout({
           <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
             <SidebarTrigger className="size-10 shrink-0 md:size-7" />
             <Link href="/dashboard" className="flex items-center shrink-0">
-              <Image
-                src="/timepulse-logo.png"
-                alt="NXT TIME PULSE"
-                width={120}
-                height={34}
-                className="h-7 w-auto object-contain"
-                priority
-              />
+              <BrandLogo height={28} />
             </Link>
             {isAdmin && (
               <Badge variant="default" className="shrink-0 gap-1">
@@ -136,8 +123,11 @@ export default async function DashboardLayout({
               </Badge>
             )}
           </div>
-          <div className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center">
-            <UserButton afterSignOutUrl="/" />
+          <div className="flex shrink-0 items-center gap-1">
+            <ModeToggle />
+            <div className="flex min-h-[44px] min-w-[44px] items-center justify-center">
+              <UserButton afterSignOutUrl="/" />
+            </div>
           </div>
         </header>
         <div className="p-4 md:p-6">{children}</div>
