@@ -9,7 +9,7 @@ import type { AllocationRow } from "../../allocations-table"
 type UserRatesContentProps = {
   allocations: AllocationRow[]
   projects: { id: string; name: string }[]
-  users: { id: string; firstName: string | null; lastName: string | null }[]
+  users: { id: string; firstName: string | null; lastName: string | null; baseRate?: number; currency?: string }[]
   userId: string
 }
 
@@ -25,16 +25,16 @@ export function UserRatesContent({
   const handleUpdate = () => {
     fetch(`/api/allocations?userId=${userId}`)
       .then((r) => r.json())
-      .then((data) =>
+      .then((data: AllocationRow[]) =>
         setList(
-          data.map((a: AllocationRow) => ({
+          data.map((a) => ({
             ...a,
-            hourlyRate: Number(a.hourlyRate),
-            startDate: typeof a.startDate === "string" ? a.startDate : (a.startDate as Date).toISOString().slice(0, 10),
+            billRate: a.billRate != null ? Number(a.billRate) : (a.hourlyRate != null ? Number(a.hourlyRate) : null),
+            startDate: typeof a.startDate === "string" ? a.startDate : (a.startDate as unknown as Date).toISOString().slice(0, 10),
             endDate: a.endDate
               ? typeof a.endDate === "string"
                 ? a.endDate
-                : (a.endDate as Date).toISOString().slice(0, 10)
+                : (a.endDate as unknown as Date).toISOString().slice(0, 10)
               : null,
           }))
         )

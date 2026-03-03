@@ -4,8 +4,7 @@ import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
 import { decimalToNumber } from "@/lib/serialize"
-import { resolveRateFromCards } from "@/lib/rates"
-import { getRateCardsByUser } from "@/lib/rate-card-map"
+import { resolveRate } from "@/lib/rates"
 
 export async function GET(
   _req: Request,
@@ -20,7 +19,7 @@ export async function GET(
   const { id } = await params
   const project = await prisma.project.findUnique({
     where: { id, orgId },
-    select: { id: true, name: true, defaultRate: true, clientRate: true, budget: true },
+    select: { id: true, name: true, budget: true },
   })
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -32,13 +31,20 @@ export async function GET(
     prisma.timesheet.findMany({
       where: { projectId: id, date: { gte: from, lte: to } },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true } },
+        user: { select: { id: true, firstName: true, lastName: true, baseRate: true, currency: true } },
       },
     }),
     getOvertimePolicy(orgId),
   ])
+
   const userIds = [...new Set(timesheets.map((t) => t.userId))]
-  const rateCardsByUser = await getRateCardsByUser(orgId, userIds, [id])
+  const allocations = userIds.length
+    ? await prisma.projectAllocation.findMany({
+        where: { userId: { in: userIds }, projectId: id },
+        select: { userId: true, billRate: true },
+      })
+    : []
+  const billRateByUser = new Map(allocations.map((a) => [a.userId, a.billRate]))
 
   const budget = decimalToNumber((project as { budget?: unknown }).budget)
 
@@ -46,12 +52,10 @@ export async function GET(
   let labourCost = 0
 
   for (const t of timesheets) {
-    const resolved = resolveRateFromCards({
-      date: t.date,
-      projectId: id,
-      projectDefaultRate: project.defaultRate,
-      projectClientRate: (project as { clientRate?: unknown }).clientRate,
-      rateCards: rateCardsByUser.get(t.userId) ?? [],
+    const resolved = resolveRate({
+      userBaseRate: t.user.baseRate,
+      userCurrency: t.user.currency,
+      allocationBillRate: billRateByUser.get(t.userId),
     })
     const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60

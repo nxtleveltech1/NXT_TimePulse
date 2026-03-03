@@ -27,7 +27,7 @@ type AllocationCreateDialogProps = {
   onSuccess?: () => void
   userId?: string
   projectId?: string
-  users: { id: string; firstName: string | null; lastName: string | null }[]
+  users: { id: string; firstName: string | null; lastName: string | null; baseRate?: number; currency?: string }[]
   projects: { id: string; name: string }[]
 }
 
@@ -43,15 +43,25 @@ export function AllocationCreateDialog({
   const [userId, setUserId] = useState(initialUserId ?? "")
   const [projectId, setProjectId] = useState(initialProjectId ?? "")
   const [roleOnProject, setRoleOnProject] = useState("")
-  const [hourlyRate, setHourlyRate] = useState("0")
+  const [billRate, setBillRate] = useState("")
   const [saving, setSaving] = useState(false)
 
+  const selectedUser = users.find((u) => u.id === userId)
+  const userBaseRate = selectedUser?.baseRate
+  const userCurrency = selectedUser?.currency?.trim() ?? "ZAR"
+
   const canSubmit = userId && projectId && roleOnProject
+
+  function handleUserChange(uid: string) {
+    setUserId(uid)
+    setBillRate("")
+  }
 
   async function handleCreate() {
     if (!canSubmit) return
     setSaving(true)
     try {
+      const parsedBillRate = billRate !== "" ? parseFloat(billRate) : null
       const res = await fetch("/api/allocations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,7 +69,7 @@ export function AllocationCreateDialog({
           userId,
           projectId,
           roleOnProject,
-          hourlyRate: parseFloat(hourlyRate) || 0,
+          billRate: parsedBillRate,
           startDate: new Date().toISOString().slice(0, 10),
         }),
       })
@@ -72,7 +82,7 @@ export function AllocationCreateDialog({
       setUserId(initialUserId ?? "")
       setProjectId(initialProjectId ?? "")
       setRoleOnProject("")
-      setHourlyRate("0")
+      setBillRate("")
       onSuccess?.()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create")
@@ -87,7 +97,7 @@ export function AllocationCreateDialog({
         <DialogHeader>
           <DialogTitle>Add allocation</DialogTitle>
           <DialogDescription>
-            Assign a user to a project with a role and hourly rate
+            Assign a user to a project with a role and optional bill rate override
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -95,7 +105,7 @@ export function AllocationCreateDialog({
             <Label>User</Label>
             <Select
               value={userId}
-              onValueChange={setUserId}
+              onValueChange={handleUserChange}
               disabled={!!initialUserId}
             >
               <SelectTrigger>
@@ -138,14 +148,29 @@ export function AllocationCreateDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label>Hourly rate</Label>
+            <Label>
+              Client bill rate{" "}
+              <span className="text-muted-foreground font-normal">(optional override)</span>
+            </Label>
             <Input
               type="number"
               step="0.01"
               min={0}
-              value={hourlyRate}
-              onChange={(e) => setHourlyRate(e.target.value)}
+              value={billRate}
+              onChange={(e) => setBillRate(e.target.value)}
+              placeholder={
+                userBaseRate != null
+                  ? `${userCurrency} ${userBaseRate.toFixed(2)}/hr (user base rate)`
+                  : "Leave blank to use user's base rate"
+              }
             />
+            {userBaseRate != null && (
+              <p className="text-xs text-muted-foreground">
+                {billRate === ""
+                  ? `Will use ${selectedUser?.firstName ?? "user"}&apos;s base rate: ${userCurrency} ${userBaseRate.toFixed(2)}/hr`
+                  : `Base rate: ${userCurrency} ${userBaseRate.toFixed(2)}/hr`}
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>

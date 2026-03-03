@@ -7,4 +7,10 @@ export const userUpdateSchema = z.object({
   message: "At least one of role or status must be provided",
 })
 
+export const userRateUpdateSchema = z.object({
+  baseRate: z.number().min(0),
+  currency: z.enum(["ZAR", "USD", "EUR", "GBP", "AUD", "CAD"]).default("ZAR"),
+})
+
 export type UserUpdateInput = z.infer<typeof userUpdateSchema>
+export type UserRateUpdateInput = z.infer<typeof userRateUpdateSchema>

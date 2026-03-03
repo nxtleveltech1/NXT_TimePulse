@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
-import { resolveRateFromCards } from "@/lib/rates"
-import { getRateCardsByUser } from "@/lib/rate-card-map"
+import { resolveRate } from "@/lib/rates"
 
 export async function GET(req: Request) {
   const { orgId, orgRole } = await auth()
@@ -20,19 +19,28 @@ export async function GET(req: Request) {
 
   const [timesheets, overtimePolicy] = await Promise.all([
     prisma.timesheet.findMany({
-    where: {
-      date: { gte: from, lte: to },
-      project: { orgId },
-    },
-    include: {
-      project: { select: { id: true, name: true, defaultRate: true, clientRate: true } },
-    },
-  }),
+      where: {
+        date: { gte: from, lte: to },
+        project: { orgId },
+      },
+      include: {
+        user: { select: { id: true, baseRate: true, currency: true } },
+        project: { select: { id: true } },
+      },
+    }),
     getOvertimePolicy(orgId),
   ])
+
   const userIds = [...new Set(timesheets.map((t) => t.userId))]
   const projectIds = [...new Set(timesheets.map((t) => t.projectId))]
-  const rateCardsByUser = await getRateCardsByUser(orgId, userIds, projectIds)
+  const allocations = userIds.length
+    ? await prisma.projectAllocation.findMany({
+        where: { userId: { in: userIds }, projectId: { in: projectIds } },
+        select: { userId: true, projectId: true, billRate: true },
+      })
+    : []
+  const allocationKey = (userId: string, projectId: string) => `${userId}::${projectId}`
+  const allocationMap = new Map(allocations.map((a) => [allocationKey(a.userId, a.projectId), a.billRate]))
 
   const revenueByPeriod: Record<string, number> = {}
   const costByPeriod: Record<string, number> = {}
@@ -51,12 +59,10 @@ export async function GET(req: Request) {
 
   for (const t of timesheets) {
     const key = periodKey(t.date)
-    const resolved = resolveRateFromCards({
-      date: t.date,
-      projectId: t.projectId,
-      projectDefaultRate: t.project.defaultRate,
-      projectClientRate: (t.project as { clientRate?: unknown }).clientRate,
-      rateCards: rateCardsByUser.get(t.userId) ?? [],
+    const resolved = resolveRate({
+      userBaseRate: t.user.baseRate,
+      userCurrency: t.user.currency,
+      allocationBillRate: allocationMap.get(allocationKey(t.userId, t.projectId)),
     })
     const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60

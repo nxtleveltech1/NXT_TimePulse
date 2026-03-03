@@ -16,7 +16,7 @@ export function ProjectTeam({
   projectId: string
   initialAllocations: AllocationRow[]
   projects: { id: string; name: string }[]
-  users: { id: string; firstName: string | null; lastName: string | null }[]
+  users: { id: string; firstName: string | null; lastName: string | null; baseRate?: number; currency?: string }[]
 }) {
   const [createOpen, setCreateOpen] = useState(false)
   const [list, setList] = useState(initialAllocations)
@@ -24,16 +24,16 @@ export function ProjectTeam({
   const handleUpdate = () => {
     fetch(`/api/allocations?projectId=${projectId}`)
       .then((r) => r.json())
-      .then((data) =>
+      .then((data: AllocationRow[]) =>
         setList(
-          data.map((a: AllocationRow) => ({
+          data.map((a) => ({
             ...a,
-            hourlyRate: Number(a.hourlyRate),
-            startDate: typeof a.startDate === "string" ? a.startDate : (a.startDate as Date).toISOString().slice(0, 10),
+            billRate: a.billRate != null ? Number(a.billRate) : (a.hourlyRate != null ? Number(a.hourlyRate) : null),
+            startDate: typeof a.startDate === "string" ? a.startDate : (a.startDate as unknown as Date).toISOString().slice(0, 10),
             endDate: a.endDate
               ? typeof a.endDate === "string"
                 ? a.endDate
-                : (a.endDate as Date).toISOString().slice(0, 10)
+                : (a.endDate as unknown as Date).toISOString().slice(0, 10)
               : null,
           }))
         )
@@ -47,7 +47,7 @@ export function ProjectTeam({
         <div>
           <CardTitle>Team</CardTitle>
           <CardDescription>
-            {list.length} allocation(s) — User rates and roles on this project
+            {list.length} allocation(s) — User roles and bill rates on this project
           </CardDescription>
         </div>
         <Button onClick={() => setCreateOpen(true)} size="sm">

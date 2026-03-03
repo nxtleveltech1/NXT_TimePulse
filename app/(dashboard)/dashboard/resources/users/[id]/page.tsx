@@ -1,4 +1,4 @@
-﻿import { auth } from "@clerk/nextjs/server"
+import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
@@ -27,7 +27,7 @@ export default async function UserRatesPage({
   const org = orgId ?? "org_default"
   const user = await prisma.user.findFirst({
     where: { id, orgId: org },
-    select: { id: true, firstName: true, lastName: true, email: true },
+    select: { id: true, firstName: true, lastName: true, email: true, baseRate: true, currency: true },
   })
   if (!user) notFound()
 
@@ -35,7 +35,7 @@ export default async function UserRatesPage({
     prisma.projectAllocation.findMany({
       where: { userId: id, project: { orgId: org } },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user: { select: { id: true, firstName: true, lastName: true, email: true, baseRate: true, currency: true } },
         project: { select: { id: true, name: true } },
       },
       orderBy: { startDate: "desc" },
@@ -47,7 +47,7 @@ export default async function UserRatesPage({
     }),
     prisma.user.findMany({
       where: { orgId: org },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, baseRate: true, currency: true },
       orderBy: { firstName: "asc" },
     }),
   ])
@@ -56,9 +56,18 @@ export default async function UserRatesPage({
 
   const serializedAllocations = allocations.map((a) => ({
     ...a,
-    hourlyRate: Number(a.hourlyRate),
+    billRate: a.billRate != null ? Number(a.billRate) : null,
+    hourlyRate: a.billRate != null ? Number(a.billRate) : 0,
+    userBaseRate: Number(a.user.baseRate),
+    userCurrency: a.user.currency.trim(),
     startDate: a.startDate.toISOString().slice(0, 10),
     endDate: a.endDate ? a.endDate.toISOString().slice(0, 10) : null,
+  }))
+
+  const serializedUsers = users.map((u) => ({
+    ...u,
+    baseRate: Number(u.baseRate),
+    currency: u.currency.trim(),
   }))
 
   return (
@@ -72,7 +81,7 @@ export default async function UserRatesPage({
         <div>
           <h1 className="text-2xl font-semibold">Manage rates - {displayName}</h1>
           <p className="text-muted-foreground">
-            Project allocations and hourly rates for this user
+            Project allocations and bill rate overrides for this user
           </p>
         </div>
       </div>
@@ -90,7 +99,7 @@ export default async function UserRatesPage({
           <UserRatesContent
             allocations={serializedAllocations}
             projects={projects}
-            users={users}
+            users={serializedUsers}
             userId={id}
           />
         </CardContent>

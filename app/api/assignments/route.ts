@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     }),
     prisma.project.findFirst({
       where: { id: input.projectId, orgId: auth.orgId },
-      select: { id: true, defaultRate: true },
+      select: { id: true },
     }),
   ])
   if (!user || !project) {
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
         userId: input.userId,
         projectId: input.projectId,
         roleOnProject: input.roleOnProject,
-        hourlyRate: project.defaultRate,
+        billRate: null,
         startDate: new Date(input.startDate),
         endDate: input.endDate ? new Date(input.endDate) : null,
         isActive: true,

@@ -413,18 +413,18 @@ export const geozones: Geozone[] = [
 
 // --------------- Project Allocations ---------------
 export const allocations: ProjectAllocation[] = [
-  { id: "alloc_1", user_id: "usr_2", project_id: "prj_1", role_on_project: "Site Manager", hourly_rate: 95, start_date: "2025-01-15", end_date: null, is_active: true, created_at: "2025-01-15T09:00:00Z" },
-  { id: "alloc_2", user_id: "usr_4", project_id: "prj_1", role_on_project: "Concrete Specialist", hourly_rate: 85, start_date: "2025-01-20", end_date: null, is_active: true, created_at: "2025-01-20T09:00:00Z" },
-  { id: "alloc_3", user_id: "usr_5", project_id: "prj_1", role_on_project: "Electrician", hourly_rate: 88, start_date: "2025-03-01", end_date: null, is_active: true, created_at: "2025-03-01T09:00:00Z" },
-  { id: "alloc_4", user_id: "usr_3", project_id: "prj_2", role_on_project: "QC Engineer", hourly_rate: 92, start_date: "2025-03-01", end_date: null, is_active: true, created_at: "2025-03-01T09:00:00Z" },
-  { id: "alloc_5", user_id: "usr_6", project_id: "prj_2", role_on_project: "Welder", hourly_rate: 90, start_date: "2025-03-15", end_date: null, is_active: true, created_at: "2025-03-15T09:00:00Z" },
-  { id: "alloc_6", user_id: "usr_7", project_id: "prj_3", role_on_project: "Finish Carpenter", hourly_rate: 78, start_date: "2025-06-01", end_date: null, is_active: true, created_at: "2025-06-01T09:00:00Z" },
-  { id: "alloc_7", user_id: "usr_9", project_id: "prj_3", role_on_project: "Painter", hourly_rate: 72, start_date: "2025-06-15", end_date: null, is_active: true, created_at: "2025-06-15T09:00:00Z" },
-  { id: "alloc_8", user_id: "usr_4", project_id: "prj_4", role_on_project: "Foundation Work", hourly_rate: 82, start_date: "2025-09-01", end_date: null, is_active: true, created_at: "2025-09-01T09:00:00Z" },
-  { id: "alloc_9", user_id: "usr_7", project_id: "prj_4", role_on_project: "Carpenter", hourly_rate: 75, start_date: "2025-09-15", end_date: null, is_active: true, created_at: "2025-09-15T09:00:00Z" },
-  { id: "alloc_10", user_id: "usr_2", project_id: "prj_7", role_on_project: "Site Manager", hourly_rate: 95, start_date: "2025-08-15", end_date: null, is_active: true, created_at: "2025-08-15T09:00:00Z" },
-  { id: "alloc_11", user_id: "usr_5", project_id: "prj_7", role_on_project: "Electrician", hourly_rate: 85, start_date: "2025-09-01", end_date: null, is_active: true, created_at: "2025-09-01T09:00:00Z" },
-  { id: "alloc_12", user_id: "usr_6", project_id: "prj_3", role_on_project: "Plumber", hourly_rate: 80, start_date: "2025-07-01", end_date: null, is_active: true, created_at: "2025-07-01T09:00:00Z" },
+  { id: "alloc_1", user_id: "usr_2", project_id: "prj_1", role_on_project: "Site Manager", bill_rate: null, start_date: "2025-01-15", end_date: null, is_active: true, created_at: "2025-01-15T09:00:00Z" },
+  { id: "alloc_2", user_id: "usr_4", project_id: "prj_1", role_on_project: "Concrete Specialist", bill_rate: null, start_date: "2025-01-20", end_date: null, is_active: true, created_at: "2025-01-20T09:00:00Z" },
+  { id: "alloc_3", user_id: "usr_5", project_id: "prj_1", role_on_project: "Electrician", bill_rate: null, start_date: "2025-03-01", end_date: null, is_active: true, created_at: "2025-03-01T09:00:00Z" },
+  { id: "alloc_4", user_id: "usr_3", project_id: "prj_2", role_on_project: "QC Engineer", bill_rate: null, start_date: "2025-03-01", end_date: null, is_active: true, created_at: "2025-03-01T09:00:00Z" },
+  { id: "alloc_5", user_id: "usr_6", project_id: "prj_2", role_on_project: "Welder", bill_rate: null, start_date: "2025-03-15", end_date: null, is_active: true, created_at: "2025-03-15T09:00:00Z" },
+  { id: "alloc_6", user_id: "usr_7", project_id: "prj_3", role_on_project: "Finish Carpenter", bill_rate: null, start_date: "2025-06-01", end_date: null, is_active: true, created_at: "2025-06-01T09:00:00Z" },
+  { id: "alloc_7", user_id: "usr_9", project_id: "prj_3", role_on_project: "Painter", bill_rate: null, start_date: "2025-06-15", end_date: null, is_active: true, created_at: "2025-06-15T09:00:00Z" },
+  { id: "alloc_8", user_id: "usr_4", project_id: "prj_4", role_on_project: "Foundation Work", bill_rate: null, start_date: "2025-09-01", end_date: null, is_active: true, created_at: "2025-09-01T09:00:00Z" },
+  { id: "alloc_9", user_id: "usr_7", project_id: "prj_4", role_on_project: "Carpenter", bill_rate: null, start_date: "2025-09-15", end_date: null, is_active: true, created_at: "2025-09-15T09:00:00Z" },
+  { id: "alloc_10", user_id: "usr_2", project_id: "prj_7", role_on_project: "Site Manager", bill_rate: null, start_date: "2025-08-15", end_date: null, is_active: true, created_at: "2025-08-15T09:00:00Z" },
+  { id: "alloc_11", user_id: "usr_5", project_id: "prj_7", role_on_project: "Electrician", bill_rate: null, start_date: "2025-09-01", end_date: null, is_active: true, created_at: "2025-09-01T09:00:00Z" },
+  { id: "alloc_12", user_id: "usr_6", project_id: "prj_3", role_on_project: "Plumber", bill_rate: null, start_date: "2025-07-01", end_date: null, is_active: true, created_at: "2025-07-01T09:00:00Z" },
 ]
 
 // --------------- Timesheets ---------------

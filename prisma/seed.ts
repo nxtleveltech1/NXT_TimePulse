@@ -65,7 +65,7 @@ async function main() {
         userId: uid,
         projectId: project.id,
         roleOnProject: uid === "user_3A9oui6sqwfusqdXCLKeNJ1pCPW" ? "admin" : (users.find((u) => u.id === uid)?.role === "manager" ? "supervisor" : "field_worker"),
-        hourlyRate: 25,
+        billRate: null,
         startDate: new Date("2025-01-01"),
         isActive: true,
       },

@@ -85,7 +85,7 @@ async function applyRateChange(
     if (scopeProjectId) {
       await tx.projectAllocation.updateMany({
         where: { userId: parsed.userId, projectId: scopeProjectId },
-        data: { hourlyRate: parsed.payRate },
+        data: { billRate: parsed.payRate },
       })
     }
 
@@ -117,7 +117,7 @@ async function applyRateChange(
     if (updated.projectId && parsed.payRate !== undefined) {
       await tx.projectAllocation.updateMany({
         where: { userId: updated.userId, projectId: updated.projectId },
-        data: { hourlyRate: parsed.payRate },
+        data: { billRate: parsed.payRate },
       })
     }
     return updated.id
@@ -168,7 +168,7 @@ async function applyAssignmentChange(
         userId: parsed.userId,
         projectId: parsed.projectId,
         roleOnProject: parsed.roleOnProject,
-        hourlyRate: project?.defaultRate ?? 0,
+        billRate: null,
         startDate: new Date(parsed.startDate),
         endDate: parsed.endDate ? new Date(parsed.endDate) : null,
         isActive: true,

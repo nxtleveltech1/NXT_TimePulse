@@ -29,8 +29,10 @@ export function AllocationEditDialog({
   onSuccess,
 }: AllocationEditDialogProps) {
   const [roleOnProject, setRoleOnProject] = useState(allocation.roleOnProject)
-  const [hourlyRate, setHourlyRate] = useState(
-    String(typeof allocation.hourlyRate === "number" ? allocation.hourlyRate : Number(allocation.hourlyRate))
+  const [billRate, setBillRate] = useState(
+    allocation.billRate != null
+      ? String(typeof allocation.billRate === "number" ? allocation.billRate : Number(allocation.billRate))
+      : ""
   )
   const [startDate, setStartDate] = useState(allocation.startDate.slice(0, 10))
   const [endDate, setEndDate] = useState(allocation.endDate ? allocation.endDate.slice(0, 10) : "")
@@ -39,8 +41,10 @@ export function AllocationEditDialog({
   useEffect(() => {
     if (open) {
       setRoleOnProject(allocation.roleOnProject)
-      setHourlyRate(
-        String(typeof allocation.hourlyRate === "number" ? allocation.hourlyRate : Number(allocation.hourlyRate))
+      setBillRate(
+        allocation.billRate != null
+          ? String(typeof allocation.billRate === "number" ? allocation.billRate : Number(allocation.billRate))
+          : ""
       )
       setStartDate(allocation.startDate.slice(0, 10))
       setEndDate(allocation.endDate ? allocation.endDate.slice(0, 10) : "")
@@ -50,12 +54,13 @@ export function AllocationEditDialog({
   async function handleSave() {
     setSaving(true)
     try {
+      const parsedBillRate = billRate !== "" ? parseFloat(billRate) : null
       const res = await fetch(`/api/allocations/${allocation.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roleOnProject,
-          hourlyRate: parseFloat(hourlyRate) || 0,
+          billRate: parsedBillRate,
           startDate,
           endDate: endDate || null,
         }),
@@ -74,13 +79,16 @@ export function AllocationEditDialog({
     }
   }
 
+  const userBaseRate = allocation.userBaseRate
+  const userCurrency = allocation.userCurrency ?? "ZAR"
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit allocation</DialogTitle>
           <DialogDescription>
-            Update rate and role for this project allocation
+            Update role and client bill rate for this project allocation
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -93,14 +101,29 @@ export function AllocationEditDialog({
             />
           </div>
           <div className="grid gap-2">
-            <Label>Hourly rate</Label>
+            <Label>
+              Client bill rate{" "}
+              <span className="text-muted-foreground font-normal">(optional override)</span>
+            </Label>
             <Input
               type="number"
               step="0.01"
               min={0}
-              value={hourlyRate}
-              onChange={(e) => setHourlyRate(e.target.value)}
+              value={billRate}
+              onChange={(e) => setBillRate(e.target.value)}
+              placeholder={
+                userBaseRate != null
+                  ? `${userCurrency} ${Number(userBaseRate).toFixed(2)}/hr (user base rate)`
+                  : "Leave blank to use user's base rate"
+              }
             />
+            {userBaseRate != null && (
+              <p className="text-xs text-muted-foreground">
+                {billRate === ""
+                  ? `Uses base rate: ${userCurrency} ${Number(userBaseRate).toFixed(2)}/hr`
+                  : `Base rate: ${userCurrency} ${Number(userBaseRate).toFixed(2)}/hr`}
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">

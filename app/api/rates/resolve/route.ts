@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireCapability } from "@/lib/auth"
-import { resolveRateQuerySchema } from "@/lib/schemas/rate"
-import { resolveRateFromCards } from "@/lib/rates"
+import { resolveRate } from "@/lib/rates"
+import { z } from "zod"
+
+const resolveRateQuerySchema = z.object({
+  userId: z.string().min(1),
+  projectId: z.string().min(1),
+})
 
 export async function GET(req: Request) {
   const auth = await requireCapability("compensation.read")
@@ -12,7 +17,6 @@ export async function GET(req: Request) {
   const parsed = resolveRateQuerySchema.safeParse({
     userId: searchParams.get("userId"),
     projectId: searchParams.get("projectId"),
-    date: searchParams.get("date"),
   })
   if (!parsed.success) {
     return NextResponse.json(
@@ -21,37 +25,25 @@ export async function GET(req: Request) {
     )
   }
 
-  const { userId, projectId, date } = parsed.data
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, orgId: auth.orgId },
-    select: { id: true, defaultRate: true, clientRate: true },
-  })
-  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 })
+  const { userId, projectId } = parsed.data
 
-  const rateCards = await prisma.rateCard.findMany({
-    where: {
-      orgId: auth.orgId,
-      userId,
-      OR: [{ projectId }, { projectId: null }],
-    },
-    select: {
-      id: true,
-      projectId: true,
-      payRate: true,
-      billRate: true,
-      currency: true,
-      effectiveFrom: true,
-      effectiveTo: true,
-      status: true,
-    },
-  })
+  const [user, allocation] = await Promise.all([
+    prisma.user.findFirst({
+      where: { id: userId, orgId: auth.orgId },
+      select: { baseRate: true, currency: true },
+    }),
+    prisma.projectAllocation.findFirst({
+      where: { userId, projectId },
+      select: { billRate: true },
+    }),
+  ])
 
-  const resolved = resolveRateFromCards({
-    date,
-    projectId,
-    projectDefaultRate: project.defaultRate,
-    projectClientRate: project.clientRate,
-    rateCards,
+  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
+
+  const resolved = resolveRate({
+    userBaseRate: user.baseRate,
+    userCurrency: user.currency,
+    allocationBillRate: allocation?.billRate,
   })
 
   return NextResponse.json(resolved)

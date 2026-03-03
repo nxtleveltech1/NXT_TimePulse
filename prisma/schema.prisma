@@ -65,6 +65,8 @@ model User {
   employmentType EmploymentType @default(employee) @map("employment_type")
   offboardedAt DateTime? @map("offboarded_at")
   lastIdentitySyncAt DateTime? @map("last_identity_sync_at")
+  baseRate     Decimal  @default(0) @map("base_rate") @db.Decimal(10, 2)
+  currency     String   @default("ZAR") @db.Char(3)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -230,7 +232,7 @@ model ProjectAllocation {
   userId         String    @map("user_id")
   projectId      String    @map("project_id")
   roleOnProject  String    @map("role_on_project")
-  hourlyRate     Decimal   @default(0) @map("hourly_rate") @db.Decimal(10, 2)
+  billRate       Decimal?  @map("hourly_rate") @db.Decimal(10, 2)
   startDate      DateTime  @map("start_date") @db.Date
   endDate        DateTime? @map("end_date") @db.Date
   isActive       Boolean   @default(true) @map("is_active")

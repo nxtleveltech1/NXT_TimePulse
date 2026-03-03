@@ -90,7 +90,7 @@ export interface ProjectAllocation {
   user_id: string
   project_id: string
   role_on_project: string
-  hourly_rate: number
+  bill_rate: number | null
   start_date: string
   end_date: string | null
   is_active: boolean

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hasCapability, requireCapability } from "@/lib/auth"
 import { serializeForClient } from "@/lib/serialize"
-import { resolveRateFromCards } from "@/lib/rates"
-import { createChangeRequest } from "@/lib/change-requests"
+import { decimalToNumber } from "@/lib/serialize"
 import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit"
 
 function deprecationHeaders(extra?: Record<string, string>) {
@@ -35,61 +34,43 @@ export async function GET(req: Request) {
   const assignments = await prisma.projectAssignment.findMany({
     where,
     include: {
-      user: { select: { id: true, firstName: true, lastName: true, email: true } },
-      project: { select: { id: true, name: true, defaultRate: true, clientRate: true } },
+      user: { select: { id: true, firstName: true, lastName: true, email: true, baseRate: true, currency: true } },
+      project: { select: { id: true, name: true } },
     },
     orderBy: { startDate: "desc" },
   })
 
-  const userIds = [...new Set(assignments.map((a) => a.userId))]
-  const projectIds = [...new Set(assignments.map((a) => a.projectId))]
-  const cards = await prisma.rateCard.findMany({
-    where: {
-      orgId: auth.orgId,
-      userId: { in: userIds.length ? userIds : ["__none__"] },
-      OR: [
-        { projectId: { in: projectIds.length ? projectIds : ["__none__"] } },
-        { projectId: null },
-      ],
-    },
-    select: {
-      id: true,
-      userId: true,
-      projectId: true,
-      payRate: true,
-      billRate: true,
-      currency: true,
-      effectiveFrom: true,
-      effectiveTo: true,
-      status: true,
-    },
-  })
-  const cardByUser = new Map<string, typeof cards>()
-  for (const c of cards) {
-    const key = c.userId
-    if (!cardByUser.has(key)) cardByUser.set(key, [])
-    cardByUser.get(key)?.push(c)
-  }
+  // Load allocation bill rates for user+project combos
+  const pairs = assignments.map((a) => ({ userId: a.userId, projectId: a.projectId }))
+  const allocations = pairs.length
+    ? await prisma.projectAllocation.findMany({
+        where: {
+          OR: pairs.map((p) => ({ userId: p.userId, projectId: p.projectId })),
+        },
+        select: { userId: true, projectId: true, billRate: true },
+      })
+    : []
+  const billRateMap = new Map(allocations.map((a) => [`${a.userId}::${a.projectId}`, a.billRate]))
 
   const compat = assignments.map((a) => {
-    const rate = resolveRateFromCards({
-      date: a.startDate.toISOString().slice(0, 10),
-      projectId: a.projectId,
-      projectDefaultRate: a.project.defaultRate,
-      projectClientRate: a.project.clientRate,
-      rateCards: cardByUser.get(a.userId) ?? [],
-    })
+    const allocationBillRate = billRateMap.get(`${a.userId}::${a.projectId}`)
+    const effectiveBillRate = canReadComp
+      ? (allocationBillRate != null ? decimalToNumber(allocationBillRate) : decimalToNumber(a.user.baseRate))
+      : 0
     return {
       id: a.id,
       userId: a.userId,
       projectId: a.projectId,
       roleOnProject: a.roleOnProject,
-      hourlyRate: canReadComp ? rate.payRate : 0,
+      hourlyRate: effectiveBillRate,
+      billRate: effectiveBillRate,
+      userBaseRate: canReadComp ? decimalToNumber(a.user.baseRate) : 0,
+      userCurrency: a.user.currency,
       startDate: a.startDate,
       endDate: a.endDate,
       isActive: a.status === "active" || a.status === "paused",
       user: a.user,
-      project: { id: a.project.id, name: a.project.name },
+      project: a.project,
     }
   })
 
@@ -121,7 +102,9 @@ export async function POST(req: Request) {
   const roleOnProject = typeof b.roleOnProject === "string" ? b.roleOnProject : ""
   const startDate = typeof b.startDate === "string" ? b.startDate : todayDate()
   const endDate = typeof b.endDate === "string" ? b.endDate : null
-  const hourlyRate = typeof b.hourlyRate === "number" ? b.hourlyRate : null
+  // Accept both billRate (new) and hourlyRate (legacy) field names
+  const billRateRaw = b.billRate ?? b.hourlyRate
+  const billRate = typeof billRateRaw === "number" ? billRateRaw : null
 
   if (!userIdParam || !projectId || !roleOnProject) {
     return NextResponse.json(
@@ -129,7 +112,7 @@ export async function POST(req: Request) {
       { status: 400 }
     )
   }
-  if (!canWriteComp && hourlyRate !== null) {
+  if (!canWriteComp && billRate !== null) {
     return NextResponse.json(
       { error: "Only admins can set compensation rates" },
       { status: 403 }
@@ -139,9 +122,12 @@ export async function POST(req: Request) {
   const [project, user] = await Promise.all([
     prisma.project.findFirst({
       where: { id: projectId, orgId: auth.orgId },
-      select: { id: true, defaultRate: true },
+      select: { id: true },
     }),
-    prisma.user.findFirst({ where: { id: userIdParam, orgId: auth.orgId }, select: { id: true } }),
+    prisma.user.findFirst({
+      where: { id: userIdParam, orgId: auth.orgId },
+      select: { id: true, baseRate: true, currency: true },
+    }),
   ])
   if (!project || !user) {
     return NextResponse.json(
@@ -152,6 +138,7 @@ export async function POST(req: Request) {
 
   const assignmentCritical = startDate < todayDate()
   if (assignmentCritical) {
+    const { createChangeRequest } = await import("@/lib/change-requests")
     const changeRequest = await createChangeRequest({
       orgId: auth.orgId,
       requestedById: auth.userId,
@@ -159,33 +146,18 @@ export async function POST(req: Request) {
       targetType: "project_assignment",
       payload: {
         operation: "create",
-        data: {
-          userId: userIdParam,
-          projectId,
-          roleOnProject,
-          allocationPct: 100,
-          startDate,
-          endDate,
-        },
+        data: { userId: userIdParam, projectId, roleOnProject, allocationPct: 100, startDate, endDate },
       },
       criticalReason: "Backdated assignment change requires approval",
     })
     return NextResponse.json(
-      {
-        status: "pending_approval",
-        changeRequestId: changeRequest.id,
-      },
+      { status: "pending_approval", changeRequestId: changeRequest.id },
       { status: 202, headers: deprecationHeaders() }
     )
   }
 
   const existing = await prisma.projectAssignment.findFirst({
-    where: {
-      orgId: auth.orgId,
-      userId: userIdParam,
-      projectId,
-      status: { in: ["active", "paused"] },
-    },
+    where: { orgId: auth.orgId, userId: userIdParam, projectId, status: { in: ["active", "paused"] } },
     select: { id: true },
   })
   if (existing) {
@@ -216,17 +188,12 @@ export async function POST(req: Request) {
     })
 
     await tx.projectAllocation.upsert({
-      where: {
-        userId_projectId: {
-          userId: userIdParam,
-          projectId,
-        },
-      },
+      where: { userId_projectId: { userId: userIdParam, projectId } },
       create: {
         userId: userIdParam,
         projectId,
         roleOnProject,
-        hourlyRate: hourlyRate ?? project.defaultRate,
+        billRate: billRate ?? null,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         isActive: true,
@@ -236,6 +203,7 @@ export async function POST(req: Request) {
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         isActive: true,
+        ...(canWriteComp && billRate !== null ? { billRate } : {}),
       },
     })
 
@@ -245,52 +213,26 @@ export async function POST(req: Request) {
         action: "allocation.created",
         entityType: "project_assignment",
         entityId: created.id,
-        details: `Compatibility allocation created for ${userIdParam}:${projectId}`,
+        details: `Allocation created for ${userIdParam}:${projectId}`,
       },
     })
     return created
   })
 
-  let rateChangeRequestId: string | null = null
-  if (hourlyRate !== null && canWriteComp) {
-    const rateRequest = await createChangeRequest({
-      orgId: auth.orgId,
-      requestedById: auth.userId,
-      changeType: "rate_change",
-      targetType: "rate_card",
-      payload: {
-        operation: "create",
-        data: {
-          userId: userIdParam,
-          projectId,
-          payRate: hourlyRate,
-          billRate: null,
-          currency: "USD",
-          effectiveFrom: startDate,
-          effectiveTo: endDate,
-          changeReason: "Submitted via legacy allocations endpoint",
-        },
-      },
-      criticalReason: "Rate change requires maker-checker approval",
-    })
-    rateChangeRequestId = rateRequest.id
-  }
-
-  const compatResponse = {
-    id: assignment.id,
-    userId: assignment.userId,
-    projectId: assignment.projectId,
-    roleOnProject: assignment.roleOnProject,
-    hourlyRate: hourlyRate ?? 0,
-    startDate: assignment.startDate,
-    endDate: assignment.endDate,
-    isActive: assignment.status === "active" || assignment.status === "paused",
-    user: assignment.user,
-    project: assignment.project,
-    ...(rateChangeRequestId ? { rateChangeRequestId } : {}),
-  }
-
-  return NextResponse.json(serializeForClient(compatResponse), {
-    headers: deprecationHeaders(rateChangeRequestId ? { "X-Rate-Change-Request-Id": rateChangeRequestId } : {}),
-  })
+  return NextResponse.json(
+    serializeForClient({
+      id: assignment.id,
+      userId: assignment.userId,
+      projectId: assignment.projectId,
+      roleOnProject: assignment.roleOnProject,
+      billRate: billRate ?? null,
+      hourlyRate: billRate ?? 0,
+      startDate: assignment.startDate,
+      endDate: assignment.endDate,
+      isActive: true,
+      user: assignment.user,
+      project: assignment.project,
+    }),
+    { headers: deprecationHeaders() }
+  )
 }

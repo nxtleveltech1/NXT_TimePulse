@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hasCapability, requireCapability } from "@/lib/auth"
-import { createChangeRequest } from "@/lib/change-requests"
 import { serializeForClient } from "@/lib/serialize"
 import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit"
 
@@ -36,7 +35,6 @@ export async function PATCH(
   const { id } = await params
   const assignment = await prisma.projectAssignment.findFirst({
     where: { id, orgId: auth.orgId },
-    include: { project: { select: { defaultRate: true } } },
   })
   if (!assignment) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -49,12 +47,14 @@ export async function PATCH(
 
   const b = body as Record<string, unknown>
   const roleOnProject = typeof b.roleOnProject === "string" ? b.roleOnProject : undefined
-  const hourlyRate = typeof b.hourlyRate === "number" ? b.hourlyRate : undefined
+  // Accept both billRate (new) and hourlyRate (legacy)
+  const billRateRaw = b.billRate ?? b.hourlyRate
+  const billRate = typeof billRateRaw === "number" ? billRateRaw : undefined
   const startDate = typeof b.startDate === "string" ? b.startDate : undefined
   const endDate = b.endDate === null ? null : typeof b.endDate === "string" ? b.endDate : undefined
   const isActive = typeof b.isActive === "boolean" ? b.isActive : undefined
 
-  if (hourlyRate !== undefined && !canWriteComp) {
+  if (billRate !== undefined && !canWriteComp) {
     return NextResponse.json(
       { error: "Only admins can set compensation rates" },
       { status: 403 }
@@ -65,6 +65,7 @@ export async function PATCH(
     (startDate !== undefined && startDate < todayDate()) ||
     (endDate !== undefined && endDate !== null && endDate < todayDate())
   if (assignmentCritical) {
+    const { createChangeRequest } = await import("@/lib/change-requests")
     const requestRow = await createChangeRequest({
       orgId: auth.orgId,
       requestedById: auth.userId,
@@ -112,6 +113,7 @@ export async function PATCH(
         ...(startDate !== undefined ? { startDate: new Date(startDate) } : {}),
         ...(endDate !== undefined ? { endDate: endDate ? new Date(endDate) : null } : {}),
         ...(isActive !== undefined ? { isActive } : {}),
+        ...(canWriteComp && billRate !== undefined ? { billRate } : {}),
       },
     })
 
@@ -127,48 +129,22 @@ export async function PATCH(
     return row
   })
 
-  let rateChangeRequestId: string | null = null
-  if (hourlyRate !== undefined && canWriteComp) {
-    const requestRow = await createChangeRequest({
-      orgId: auth.orgId,
-      requestedById: auth.userId,
-      changeType: "rate_change",
-      targetType: "rate_card",
-      payload: {
-        operation: "create",
-        data: {
-          userId: assignment.userId,
-          projectId: assignment.projectId,
-          payRate: hourlyRate,
-          billRate: null,
-          currency: "USD",
-          effectiveFrom: startDate ?? todayDate(),
-          effectiveTo: endDate ?? null,
-          changeReason: "Submitted via legacy allocations update endpoint",
-        },
-      },
-      criticalReason: "Rate change requires maker-checker approval",
-    })
-    rateChangeRequestId = requestRow.id
-  }
-
-  const compat = {
-    id: updated.id,
-    userId: updated.userId,
-    projectId: updated.projectId,
-    roleOnProject: updated.roleOnProject,
-    hourlyRate: hourlyRate ?? 0,
-    startDate: updated.startDate,
-    endDate: updated.endDate,
-    isActive: updated.status === "active" || updated.status === "paused",
-    user: updated.user,
-    project: updated.project,
-    ...(rateChangeRequestId ? { rateChangeRequestId } : {}),
-  }
-
-  return NextResponse.json(serializeForClient(compat), {
-    headers: deprecationHeaders(rateChangeRequestId ? { "X-Rate-Change-Request-Id": rateChangeRequestId } : {}),
-  })
+  return NextResponse.json(
+    serializeForClient({
+      id: updated.id,
+      userId: updated.userId,
+      projectId: updated.projectId,
+      roleOnProject: updated.roleOnProject,
+      billRate: billRate ?? null,
+      hourlyRate: billRate ?? 0,
+      startDate: updated.startDate,
+      endDate: updated.endDate,
+      isActive: updated.status === "active" || updated.status === "paused",
+      user: updated.user,
+      project: updated.project,
+    }),
+    { headers: deprecationHeaders() }
+  )
 }
 
 export async function DELETE(
@@ -194,11 +170,7 @@ export async function DELETE(
   await prisma.$transaction(async (tx) => {
     await tx.projectAssignment.update({
       where: { id },
-      data: {
-        status: "ended",
-        endDate: new Date(),
-        updatedById: auth.userId,
-      },
+      data: { status: "ended", endDate: new Date(), updatedById: auth.userId },
     })
     await tx.projectAllocation.deleteMany({
       where: { userId: assignment.userId, projectId: assignment.projectId },
@@ -214,8 +186,5 @@ export async function DELETE(
     })
   })
 
-  return NextResponse.json(
-    { success: true },
-    { headers: deprecationHeaders() }
-  )
+  return NextResponse.json({ success: true }, { headers: deprecationHeaders() })
 }

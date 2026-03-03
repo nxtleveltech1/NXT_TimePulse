@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { decimalToNumber } from "@/lib/serialize"
+import { UserRateCard } from "./user-rate-card"
 
 export default async function UserDetailPage({
   params,
@@ -37,13 +38,15 @@ export default async function UserDetailPage({
       status: true,
       employmentType: true,
       offboardedAt: true,
+      baseRate: true,
+      currency: true,
       createdAt: true,
       updatedAt: true,
     },
   })
   if (!user) notFound()
 
-  const [assignments, events, pendingRequests, rates] = await Promise.all([
+  const [assignments, events, pendingRequests, allocations] = await Promise.all([
     prisma.projectAssignment.findMany({
       where: { orgId, userId: id },
       include: {
@@ -74,11 +77,10 @@ export default async function UserDetailPage({
       take: 50,
     }),
     canReadComp
-      ? prisma.rateCard.findMany({
-          where: { orgId, userId: id },
+      ? prisma.projectAllocation.findMany({
+          where: { userId: id },
           include: { project: { select: { id: true, name: true } } },
-          orderBy: [{ effectiveFrom: "desc" }, { createdAt: "desc" }],
-          take: 100,
+          orderBy: { startDate: "desc" },
         })
       : Promise.resolve([]),
   ])
@@ -95,40 +97,85 @@ export default async function UserDetailPage({
         </Button>
         <div>
           <h1 className="text-2xl font-semibold">{displayName}</h1>
-          <p className="text-muted-foreground">Profile, assignments, rate history, lifecycle timeline</p>
+          <p className="text-muted-foreground">Profile, rates, assignments, and lifecycle timeline</p>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>Current access and lifecycle state</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-2 text-sm">
-          <p><span className="font-medium">Email:</span> {user.email ?? "—"}</p>
-          <p><span className="font-medium">Role:</span> <Badge variant="secondary">{user.role}</Badge></p>
-          <p><span className="font-medium">Status:</span> <Badge>{user.status}</Badge></p>
-          <p><span className="font-medium">Employment:</span> {user.employmentType}</p>
-          <p><span className="font-medium">Created:</span> {user.createdAt.toISOString().slice(0, 10)}</p>
-          <p><span className="font-medium">Updated:</span> {user.updatedAt.toISOString().slice(0, 10)}</p>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile</CardTitle>
+            <CardDescription>Current access and lifecycle state</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2 text-sm">
+            <p><span className="font-medium">Email:</span> {user.email ?? "—"}</p>
+            <p><span className="font-medium">Role:</span> <Badge variant="secondary">{user.role}</Badge></p>
+            <p><span className="font-medium">Status:</span> <Badge>{user.status}</Badge></p>
+            <p><span className="font-medium">Employment:</span> {user.employmentType}</p>
+            <p><span className="font-medium">Created:</span> {user.createdAt.toISOString().slice(0, 10)}</p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Pending Change Requests</CardTitle>
-          <CardDescription>{pendingRequests.length} pending request(s)</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {pendingRequests.length === 0 && <p className="text-muted-foreground">No pending requests.</p>}
-          {pendingRequests.map((r) => (
-            <div key={r.id} className="rounded border p-2">
-              <p className="font-medium">{r.changeType}</p>
-              <p className="text-muted-foreground">{r.targetType} · {r.createdAt.toISOString().slice(0, 10)}</p>
+        {canReadComp && (
+          <UserRateCard
+            userId={id}
+            initialBaseRate={decimalToNumber(user.baseRate)}
+            initialCurrency={user.currency}
+          />
+        )}
+      </div>
+
+      {canReadComp && allocations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Project Bill Rates</CardTitle>
+            <CardDescription>
+              Per-project billing overrides — if blank, the base rate above is used
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y text-sm">
+              {allocations.map((a) => {
+                const br = a.billRate != null ? decimalToNumber(a.billRate) : null
+                return (
+                  <div key={a.id} className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="font-medium">{a.project.name}</p>
+                      <p className="text-xs text-muted-foreground">{a.roleOnProject}</p>
+                    </div>
+                    <div className="text-right">
+                      {br != null && br > 0 ? (
+                        <p className="font-medium tabular-nums">
+                          {user.currency.trim()} {br.toFixed(2)}<span className="text-muted-foreground font-normal">/hr</span>
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground text-xs">Uses base rate</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          ))}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
+
+      {pendingRequests.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Change Requests</CardTitle>
+            <CardDescription>{pendingRequests.length} pending request(s)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {pendingRequests.map((r) => (
+              <div key={r.id} className="rounded border p-2">
+                <p className="font-medium">{r.changeType}</p>
+                <p className="text-muted-foreground">{r.targetType} · {r.createdAt.toISOString().slice(0, 10)}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -147,29 +194,6 @@ export default async function UserDetailPage({
           ))}
         </CardContent>
       </Card>
-
-      {canReadComp && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Rate History</CardTitle>
-            <CardDescription>{rates.length} rate card record(s)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {rates.length === 0 && <p className="text-muted-foreground">No rate history found.</p>}
-            {rates.map((r) => (
-              <div key={r.id} className="rounded border p-2">
-                <p className="font-medium">{r.project?.name ?? "Global"} · {r.status}</p>
-                <p className="text-muted-foreground">
-                  Pay {decimalToNumber(r.payRate).toFixed(2)} / Bill {decimalToNumber(r.billRate).toFixed(2)} {r.currency}
-                </p>
-                <p className="text-muted-foreground">
-                  {r.effectiveFrom.toISOString().slice(0, 10)} to {r.effectiveTo ? r.effectiveTo.toISOString().slice(0, 10) : "open"}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>

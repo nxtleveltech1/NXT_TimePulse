@@ -28,7 +28,7 @@ export default async function ProjectDetailPage({
     prisma.projectAllocation.findMany({
       where: { projectId: id, project: { orgId: org } },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+        user: { select: { id: true, firstName: true, lastName: true, email: true, baseRate: true, currency: true } },
         project: { select: { id: true, name: true } },
       },
       orderBy: { startDate: "desc" },
@@ -40,7 +40,7 @@ export default async function ProjectDetailPage({
     }),
     prisma.user.findMany({
       where: { orgId: org },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, baseRate: true, currency: true },
       orderBy: { firstName: "asc" },
     }),
   ])
@@ -49,9 +49,18 @@ export default async function ProjectDetailPage({
 
   const serializedAllocations = allocations.map((a) => ({
     ...a,
-    hourlyRate: Number(a.hourlyRate),
+    billRate: a.billRate != null ? Number(a.billRate) : null,
+    hourlyRate: a.billRate != null ? Number(a.billRate) : 0,
+    userBaseRate: Number(a.user.baseRate),
+    userCurrency: a.user.currency.trim(),
     startDate: a.startDate.toISOString().slice(0, 10),
     endDate: a.endDate ? a.endDate.toISOString().slice(0, 10) : null,
+  }))
+
+  const serializedUsers = users.map((u) => ({
+    ...u,
+    baseRate: Number(u.baseRate),
+    currency: u.currency.trim(),
   }))
 
   return (
@@ -86,7 +95,7 @@ export default async function ProjectDetailPage({
         projectId={id}
         initialAllocations={serializedAllocations}
         projects={projects}
-        users={users}
+        users={serializedUsers}
       />
 
       <Card>

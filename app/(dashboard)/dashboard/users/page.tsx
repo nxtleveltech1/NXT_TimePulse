@@ -3,9 +3,12 @@ import { Prisma } from "@/generated/prisma"
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 import { UsersTable } from "./users-table"
 import { UserInviteButton } from "./user-invite-button"
 import { isAdmin, isAdminOrManager } from "@/lib/auth"
+import { decimalToNumber } from "@/lib/serialize"
+import Link from "next/link"
 
 type UserRow = {
   id: string
@@ -15,6 +18,17 @@ type UserRow = {
   role: string
   status: string
   _count: { timesheets: number; allocations: number }
+}
+
+type UserRateRow = {
+  id: string
+  firstName: string | null
+  lastName: string | null
+  email: string | null
+  role: string
+  status: string
+  baseRate: unknown
+  currency: string
 }
 
 type AssignmentRow = {
@@ -48,18 +62,34 @@ export default async function UsersPage() {
 
   let degradedMode = false
   let users: UserRow[] = []
+  let userRates: UserRateRow[] = []
   let assignments: AssignmentRow[] = []
   let lifecycleEvents: LifecycleRow[] = []
   let pendingRequests: Array<{ id: string }> = []
-  let rateCount = 0
 
   try {
-    ;[users, assignments, lifecycleEvents, pendingRequests, rateCount] = await Promise.all([
+    ;[users, userRates, assignments, lifecycleEvents, pendingRequests] = await Promise.all([
       prisma.user.findMany({
         where: { orgId: org },
         include: { _count: { select: { timesheets: true, allocations: true } } },
         orderBy: { createdAt: "desc" },
       }),
+      canReadComp
+        ? prisma.user.findMany({
+            where: { orgId: org },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+              status: true,
+              baseRate: true,
+              currency: true,
+            },
+            orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+          })
+        : Promise.resolve([]),
       prisma.projectAssignment.findMany({
         where: { orgId: org },
         select: { id: true, status: true, userId: true, projectId: true },
@@ -77,7 +107,6 @@ export default async function UsersPage() {
         where: { orgId: org, status: "pending" },
         select: { id: true },
       }),
-      canReadComp ? prisma.rateCard.count({ where: { orgId: org } }) : Promise.resolve(0),
     ])
   } catch {
     degradedMode = true
@@ -214,18 +243,49 @@ export default async function UsersPage() {
           <Card>
             <CardHeader>
               <CardTitle>Compensation</CardTitle>
-              <CardDescription>Rate cards and approval-gated compensation changes</CardDescription>
+              <CardDescription>
+                Base hourly rates — click a user name to edit their rate
+              </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-2 text-sm">
+            <CardContent>
               {!canReadComp || degradedMode ? (
-                <p className="text-muted-foreground">Compensation details are unavailable in compatibility mode.</p>
+                <p className="text-muted-foreground text-sm">Compensation details are unavailable in compatibility mode.</p>
+              ) : userRates.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No users found.</p>
               ) : (
-                <>
-                  <p><span className="font-medium">Rate card records:</span> {rateCount}</p>
-                  <p className="text-muted-foreground">
-                    Open Approvals to review pending rate changes before they become active.
-                  </p>
-                </>
+                <div className="divide-y text-sm">
+                  <div className="grid grid-cols-4 pb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <span className="col-span-2">User</span>
+                    <span>Base Rate</span>
+                    <span>Currency</span>
+                  </div>
+                  {userRates.map((u) => {
+                    const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email || u.id
+                    const rate = decimalToNumber(u.baseRate)
+                    return (
+                      <div key={u.id} className="grid grid-cols-4 items-center py-2.5">
+                        <div className="col-span-2">
+                          <Link
+                            href={`/dashboard/users/${u.id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {name}
+                          </Link>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Badge variant="secondary" className="text-xs py-0">{u.role}</Badge>
+                            {u.status !== "active" && (
+                              <Badge variant="outline" className="text-xs py-0">{u.status}</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <span className="tabular-nums font-medium">
+                          {rate > 0 ? rate.toFixed(2) : <span className="text-muted-foreground">—</span>}
+                        </span>
+                        <span className="text-muted-foreground">{u.currency.trim()}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>
