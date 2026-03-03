@@ -16,8 +16,8 @@ import {
   Wallet,
   CheckSquare,
 } from "lucide-react"
-// Auth-dependent layout — revalidate every 60 seconds, not force-dynamic on every request
-export const revalidate = 60
+// Auth layout must be force-dynamic — Clerk's auth() reads per-request headers
+export const dynamic = "force-dynamic"
 
 import {
   Sidebar,
