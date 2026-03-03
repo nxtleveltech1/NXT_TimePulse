@@ -83,7 +83,6 @@ export async function POST(req: Request) {
       emailAddress: [email],
       firstName,
       lastName,
-      ...(normalizedPhone ? { phoneNumber: [normalizedPhone] } : {}),
       password,
       skipPasswordChecks: true,
       skipLegalChecks: true,
