@@ -8,7 +8,6 @@ import {
   Clock,
   Users,
   BarChart3,
-  Briefcase,
   Calendar,
   FileText,
   ScrollText,
@@ -40,7 +39,6 @@ import { NotificationBell } from "@/components/notification-bell"
 
 const mainNavItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/worker", label: "Worker", icon: Briefcase },
   { href: "/dashboard/projects", label: "Projects", icon: FolderKanban },
   { href: "/dashboard/geozones", label: "Geozones", icon: MapPin },
   { href: "/dashboard/timesheets", label: "Timesheets", icon: Clock },

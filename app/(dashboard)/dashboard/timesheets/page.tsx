@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { TimesheetsTable } from "./timesheets-table"
 import { TimesheetsViewToggle } from "./timesheets-view-toggle"
 import { ManualEntryDialog } from "@/components/time-capture/manual-entry-dialog"
+import { WorkerClock } from "@/app/(dashboard)/dashboard/worker/worker-clock"
 import { serializeForClient } from "@/lib/serialize"
 import Link from "next/link"
 import { LayoutGrid } from "lucide-react"
@@ -16,6 +17,7 @@ export default async function TimesheetsPage({
   searchParams: Promise<{ status?: string }>
 }) {
   const { userId, orgId, orgRole } = await auth()
+  if (!userId) return null
   const { status } = await searchParams
   const isAdmin = isAdminOrManager(orgRole as string)
   const org = orgId ?? "org_default"
@@ -26,7 +28,7 @@ export default async function TimesheetsPage({
   if (!isAdmin && userId) where.userId = userId
   if (status) where.status = status
 
-  const [timesheets, allocations, orgProjects] = await Promise.all([
+  const [timesheets, allocations, orgProjects, openTimesheet, recentTimesheets] = await Promise.all([
     prisma.timesheet.findMany({
       where,
       include: {
@@ -49,12 +51,26 @@ export default async function TimesheetsPage({
           select: { id: true, name: true },
         })
       : Promise.resolve([]),
+    prisma.timesheet.findFirst({
+      where: { userId, clockOut: null },
+      include: { project: { select: { name: true } }, geozone: { select: { name: true } } },
+      orderBy: { clockIn: "desc" },
+    }),
+    prisma.timesheet.findMany({
+      where: { userId },
+      include: { project: { select: { id: true, name: true } } },
+      orderBy: { date: "desc" },
+      take: 5,
+    }),
   ])
 
-  // Admins see all org projects; workers see their allocations
   const projectsForDialog = isAdmin && orgProjects.length > 0
     ? orgProjects.map((p) => ({ id: p.id, projectId: p.id, project: p }))
     : allocations
+
+  const lastCompletedTimesheet = recentTimesheets.find(
+    (t) => t.clockOut !== null && t.id !== openTimesheet?.id
+  ) ?? null
 
   return (
     <div className="space-y-6">
@@ -69,7 +85,7 @@ export default async function TimesheetsPage({
             )}
           </div>
           <p className="text-muted-foreground">
-            {isAdmin ? "View and approve timesheet entries" : "View your timesheets"}
+            {isAdmin ? "Clock in, manage entries and approve timesheets" : "Clock in and manage your time entries"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -83,9 +99,22 @@ export default async function TimesheetsPage({
         </div>
       </div>
 
+      <WorkerClock
+        openTimesheet={serializeForClient(openTimesheet)}
+        allocations={serializeForClient(projectsForDialog)}
+        lastTimesheet={
+          lastCompletedTimesheet
+            ? serializeForClient({
+                projectId: lastCompletedTimesheet.projectId,
+                project: lastCompletedTimesheet.project,
+              })
+            : undefined
+        }
+      />
+
       <Card>
         <CardHeader>
-          <CardTitle>Recent timesheets</CardTitle>
+          <CardTitle>Time entries</CardTitle>
           <CardDescription>{timesheets.length} entries</CardDescription>
         </CardHeader>
         <CardContent>
