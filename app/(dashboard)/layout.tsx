@@ -80,7 +80,10 @@ export default async function DashboardLayout({
               <SidebarMenu>
                 {mainNavItems.map((item) => (
                   <SidebarMenuItem key={item.href}>
-                    <NavLink href={item.href} label={item.label} icon={item.icon} />
+                    <NavLink href={item.href}>
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </NavLink>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -98,7 +101,10 @@ export default async function DashboardLayout({
                     .filter((item) => !item.adminOnly || isSuperAdmin)
                     .map((item) => (
                     <SidebarMenuItem key={item.href}>
-                      <NavLink href={item.href} label={item.label} icon={item.icon} />
+                      <NavLink href={item.href}>
+                        <item.icon className="h-4 w-4" />
+                        {item.label}
+                      </NavLink>
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>

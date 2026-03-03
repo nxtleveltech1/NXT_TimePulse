@@ -3,15 +3,14 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
-import type { LucideIcon } from "lucide-react"
+import type { ReactNode } from "react"
 
 interface NavLinkProps {
   href: string
-  label: string
-  icon: LucideIcon
+  children: ReactNode
 }
 
-export function NavLink({ href, label, icon: Icon }: NavLinkProps) {
+export function NavLink({ href, children }: NavLinkProps) {
   const pathname = usePathname()
   const isActive =
     href === "/dashboard"
@@ -21,8 +20,7 @@ export function NavLink({ href, label, icon: Icon }: NavLinkProps) {
   return (
     <SidebarMenuButton asChild isActive={isActive}>
       <Link href={href}>
-        <Icon className="h-4 w-4" />
-        {label}
+        {children}
       </Link>
     </SidebarMenuButton>
   )
