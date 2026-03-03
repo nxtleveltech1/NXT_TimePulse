@@ -2,55 +2,55 @@
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 DO $$ BEGIN
-  CREATE TYPE "user_lifecycle_status" AS ENUM ('invited', 'active', 'suspended', 'offboarded', 'archived');
+  CREATE TYPE "UserLifecycleStatus" AS ENUM ('invited', 'active', 'suspended', 'offboarded', 'archived');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE "employment_type" AS ENUM ('employee', 'contractor', 'temp');
+  CREATE TYPE "EmploymentType" AS ENUM ('employee', 'contractor', 'temp');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE "assignment_status" AS ENUM ('active', 'paused', 'ended');
+  CREATE TYPE "AssignmentStatus" AS ENUM ('active', 'paused', 'ended');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE "rate_card_status" AS ENUM ('pending', 'active', 'superseded', 'cancelled');
+  CREATE TYPE "RateCardStatus" AS ENUM ('pending', 'active', 'superseded', 'cancelled');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE "change_type" AS ENUM ('rate_change', 'assignment_change', 'user_access_change');
+  CREATE TYPE "ChangeType" AS ENUM ('rate_change', 'assignment_change', 'user_access_change');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE "change_request_status" AS ENUM ('pending', 'approved', 'rejected', 'cancelled');
+  CREATE TYPE "ChangeRequestStatus" AS ENUM ('pending', 'approved', 'rejected', 'cancelled');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
 ALTER TABLE "users"
   ADD COLUMN IF NOT EXISTS "manager_user_id" TEXT,
-  ADD COLUMN IF NOT EXISTS "employment_type" "employment_type" NOT NULL DEFAULT 'employee',
+  ADD COLUMN IF NOT EXISTS "employment_type" "EmploymentType" NOT NULL DEFAULT 'employee',
   ADD COLUMN IF NOT EXISTS "offboarded_at" TIMESTAMP(3),
   ADD COLUMN IF NOT EXISTS "last_identity_sync_at" TIMESTAMP(3);
 
 ALTER TABLE "users"
-  ADD COLUMN IF NOT EXISTS "status_new" "user_lifecycle_status" NOT NULL DEFAULT 'active';
+  ADD COLUMN IF NOT EXISTS "status_new" "UserLifecycleStatus" NOT NULL DEFAULT 'active';
 
 UPDATE "users"
 SET "status_new" = CASE
-  WHEN "status" IN ('invited', 'active', 'suspended', 'offboarded', 'archived') THEN "status"::"user_lifecycle_status"
-  WHEN "status" = 'inactive' THEN 'suspended'::"user_lifecycle_status"
-  ELSE 'active'::"user_lifecycle_status"
+  WHEN "status" IN ('invited', 'active', 'suspended', 'offboarded', 'archived') THEN "status"::"UserLifecycleStatus"
+  WHEN "status" = 'inactive' THEN 'suspended'::"UserLifecycleStatus"
+  ELSE 'active'::"UserLifecycleStatus"
 END;
 
 ALTER TABLE "users" DROP COLUMN IF EXISTS "status";
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS "project_assignments" (
   "allocation_pct" DECIMAL(5,2) NOT NULL DEFAULT 100,
   "start_date" DATE NOT NULL,
   "end_date" DATE,
-  "status" "assignment_status" NOT NULL DEFAULT 'active',
+  "status" "AssignmentStatus" NOT NULL DEFAULT 'active',
   "created_by" TEXT NOT NULL,
   "updated_by" TEXT NOT NULL,
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS "rate_cards" (
   "currency" CHAR(3) NOT NULL,
   "effective_from" DATE NOT NULL,
   "effective_to" DATE,
-  "status" "rate_card_status" NOT NULL DEFAULT 'active',
+  "status" "RateCardStatus" NOT NULL DEFAULT 'active',
   "change_reason" TEXT,
   "requested_by" TEXT NOT NULL,
   "approved_by" TEXT,
@@ -137,12 +137,12 @@ ALTER TABLE "rate_cards"
 CREATE TABLE IF NOT EXISTS "admin_change_requests" (
   "id" TEXT NOT NULL PRIMARY KEY,
   "org_id" TEXT NOT NULL,
-  "change_type" "change_type" NOT NULL,
+  "change_type" "ChangeType" NOT NULL,
   "target_type" TEXT NOT NULL,
   "target_id" TEXT,
   "payload" JSONB NOT NULL,
   "critical_reason" TEXT,
-  "status" "change_request_status" NOT NULL DEFAULT 'pending',
+  "status" "ChangeRequestStatus" NOT NULL DEFAULT 'pending',
   "requested_by" TEXT NOT NULL,
   "reviewed_by" TEXT,
   "reviewed_at" TIMESTAMP(3),
@@ -221,7 +221,7 @@ SELECT
   100,
   pa."start_date",
   pa."end_date",
-  CASE WHEN pa."is_active" THEN 'active'::"assignment_status" ELSE 'ended'::"assignment_status" END,
+  CASE WHEN pa."is_active" THEN 'active'::"AssignmentStatus" ELSE 'ended'::"AssignmentStatus" END,
   pa."user_id",
   pa."user_id",
   pa."created_at",
@@ -258,7 +258,7 @@ SELECT
   'USD',
   pa."start_date",
   pa."end_date",
-  CASE WHEN pa."is_active" THEN 'active'::"rate_card_status" ELSE 'superseded'::"rate_card_status" END,
+  CASE WHEN pa."is_active" THEN 'active'::"RateCardStatus" ELSE 'superseded'::"RateCardStatus" END,
   'Backfilled from project_allocations',
   pa."user_id",
   pa."user_id",
