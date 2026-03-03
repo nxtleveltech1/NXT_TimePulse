@@ -159,7 +159,7 @@ export function UserCreateDialog({ open, onOpenChange }: UserCreateDialogProps) 
                 <Input
                   id="create-phone"
                   type="tel"
-                  placeholder="+1 555 000 0000"
+                  placeholder="0754 702 529 or +27 754 702 529"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />

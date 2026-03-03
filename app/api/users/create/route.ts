@@ -31,6 +31,16 @@ function generatePassword(): string {
   return s
 }
 
+/** Normalize local phone to E.164. Strips whitespace/dashes, converts leading 0 → +27 (ZA). */
+function normalizePhone(raw: string | undefined): string | undefined {
+  if (!raw?.trim()) return undefined
+  const stripped = raw.replace(/[\s\-().]/g, "")
+  if (stripped.startsWith("+")) return stripped
+  if (stripped.startsWith("0")) return `+27${stripped.slice(1)}`
+  if (/^\d{10,15}$/.test(stripped)) return `+${stripped}`
+  return stripped
+}
+
 export async function POST(req: Request) {
   const { userId, orgId, orgRole } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -65,13 +75,15 @@ export async function POST(req: Request) {
   const password = generatePassword()
   const clerkRole = roleToClerk[role]
 
+  const normalizedPhone = normalizePhone(phone)
+
   try {
     const clerk = await clerkClient()
     const newUser = await clerk.users.createUser({
       emailAddress: [email],
       firstName,
       lastName,
-      ...(phone?.trim() ? { phoneNumber: [phone.trim()] } : {}),
+      ...(normalizedPhone ? { phoneNumber: [normalizedPhone] } : {}),
       password,
       skipPasswordChecks: true,
       skipLegalChecks: true,
@@ -93,7 +105,7 @@ export async function POST(req: Request) {
         role,
         firstName,
         lastName,
-        phone: phone ?? null,
+        phone: normalizedPhone ?? null,
         status: "invited",
         updatedAt: new Date(),
       },
@@ -102,7 +114,7 @@ export async function POST(req: Request) {
         role,
         firstName,
         lastName,
-        phone: phone ?? null,
+        phone: normalizedPhone ?? null,
         status: "invited",
         updatedAt: new Date(),
       },
