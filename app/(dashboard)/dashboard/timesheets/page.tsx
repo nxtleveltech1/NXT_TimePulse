@@ -26,7 +26,7 @@ export default async function TimesheetsPage({
   if (!isAdmin && userId) where.userId = userId
   if (status) where.status = status
 
-  const [timesheets, allocations] = await Promise.all([
+  const [timesheets, allocations, orgProjects] = await Promise.all([
     prisma.timesheet.findMany({
       where,
       include: {
@@ -43,7 +43,18 @@ export default async function TimesheetsPage({
           include: { project: { select: { id: true, name: true } } },
         })
       : Promise.resolve([]),
+    isAdmin
+      ? prisma.project.findMany({
+          where: { orgId: org, status: "active" },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
   ])
+
+  // Admins see all org projects; workers see their allocations
+  const projectsForDialog = isAdmin && orgProjects.length > 0
+    ? orgProjects.map((p) => ({ id: p.id, projectId: p.id, project: p }))
+    : allocations
 
   return (
     <div className="space-y-6">
@@ -68,7 +79,7 @@ export default async function TimesheetsPage({
               Weekly
             </Link>
           </Button>
-          <ManualEntryDialog allocations={serializeForClient(allocations)} />
+          <ManualEntryDialog allocations={serializeForClient(projectsForDialog)} />
         </div>
       </div>
 

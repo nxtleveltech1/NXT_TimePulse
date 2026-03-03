@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
+import { isAdminOrManager } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { WorkerClock } from "./worker-clock"
@@ -9,10 +10,12 @@ import { serializeForClient } from "@/lib/serialize"
 import { ManualEntryDialog } from "@/components/time-capture/manual-entry-dialog"
 
 export default async function WorkerPage() {
-  const { userId } = await auth()
+  const { userId, orgId, orgRole } = await auth()
   if (!userId) return null
+  const isAdmin = isAdminOrManager(orgRole as string)
+  const org = orgId ?? "org_default"
 
-  const [allocations, openTimesheet, recentTimesheets] = await Promise.all([
+  const [allocations, openTimesheet, recentTimesheets, orgProjects] = await Promise.all([
     prisma.projectAllocation.findMany({
       where: { userId, isActive: true },
       include: { project: { select: { id: true, name: true } } },
@@ -28,7 +31,18 @@ export default async function WorkerPage() {
       orderBy: { date: "desc" },
       take: 10,
     }),
+    isAdmin
+      ? prisma.project.findMany({
+          where: { orgId: org, status: "active" },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
   ])
+
+  // Admins see all org projects; workers see their allocations
+  const projectsForDialog = isAdmin && orgProjects.length > 0
+    ? orgProjects.map((p) => ({ id: p.id, projectId: p.id, project: p }))
+    : allocations
 
   const lastCompletedTimesheet = recentTimesheets.find(
     (t) => t.clockOut !== null && t.id !== openTimesheet?.id
@@ -43,12 +57,12 @@ export default async function WorkerPage() {
             Your assigned projects and timesheet
           </p>
         </div>
-        <ManualEntryDialog allocations={serializeForClient(allocations)} />
+        <ManualEntryDialog allocations={serializeForClient(projectsForDialog)} />
       </div>
 
       <WorkerClock
         openTimesheet={serializeForClient(openTimesheet)}
-        allocations={serializeForClient(allocations)}
+        allocations={serializeForClient(projectsForDialog)}
         lastTimesheet={
           lastCompletedTimesheet
             ? serializeForClient({
