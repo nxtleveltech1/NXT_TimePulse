@@ -47,12 +47,17 @@ export async function POST(
     if (approved.changeType === "user_access_change" && payload.operation === "offboard" && payload.userId) {
       try {
         const clerk = await clerkClient()
-        await clerk.organizations.deleteOrganizationMembership({
-          organizationId: auth.orgId,
-          userId: payload.userId,
-        })
+        try {
+          await clerk.organizations.deleteOrganizationMembership({
+            organizationId: auth.orgId,
+            userId: payload.userId,
+          })
+        } catch { /* membership may already be removed */ }
+        try {
+          await clerk.users.deleteUser(payload.userId)
+        } catch { /* user may not exist or may have other orgs */ }
       } catch (err) {
-        warning = err instanceof Error ? err.message : "Failed to remove Clerk membership"
+        warning = err instanceof Error ? err.message : "Failed to clean up Clerk"
       }
     }
 

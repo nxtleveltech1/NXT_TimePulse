@@ -79,26 +79,56 @@ export async function POST(req: Request) {
 
   try {
     const clerk = await clerkClient()
-    const newUser = await clerk.users.createUser({
+
+    // Check if a Clerk user already exists with this email (e.g. previously offboarded)
+    let clerkUser: Awaited<ReturnType<typeof clerk.users.createUser>> | null = null
+    const { data: existingUsers } = await clerk.users.getUserList({
       emailAddress: [email],
-      firstName,
-      lastName,
-      password,
-      skipPasswordChecks: true,
-      skipLegalChecks: true,
-      publicMetadata: { requirePasswordChange: true },
     })
 
-    await clerk.organizations.createOrganizationMembership({
-      organizationId: org,
-      userId: newUser.id,
-      role: clerkRole,
-    })
+    if (existingUsers.length > 0) {
+      clerkUser = existingUsers[0]!
+      // Update their profile in case name/phone changed
+      await clerk.users.updateUser(clerkUser.id, {
+        firstName,
+        lastName,
+      })
+    } else {
+      clerkUser = await clerk.users.createUser({
+        emailAddress: [email],
+        firstName,
+        lastName,
+        password,
+        skipPasswordChecks: true,
+        skipLegalChecks: true,
+        publicMetadata: { requirePasswordChange: true },
+      })
+    }
+
+    // Add to org — if already a member, update their role instead
+    try {
+      await clerk.organizations.createOrganizationMembership({
+        organizationId: org,
+        userId: clerkUser.id,
+        role: clerkRole,
+      })
+    } catch (memErr) {
+      const msg = memErr instanceof Error ? memErr.message : ""
+      if (msg.includes("already") || msg.includes("member")) {
+        await clerk.organizations.updateOrganizationMembership({
+          organizationId: org,
+          userId: clerkUser.id,
+          role: clerkRole,
+        })
+      } else {
+        throw memErr
+      }
+    }
 
     await prisma.user.upsert({
-      where: { id: newUser.id },
+      where: { id: clerkUser.id },
       create: {
-        id: newUser.id,
+        id: clerkUser.id,
         email,
         orgId: org,
         role,
@@ -121,19 +151,21 @@ export async function POST(req: Request) {
 
     await logLifecycleEvent({
       orgId: org,
-      userId: newUser.id,
+      userId: clerkUser.id,
       actorUserId: userId,
       eventType: "created",
-      metadata: { source: "create_user", role },
+      metadata: { source: "create_user", role, reused: existingUsers.length > 0 },
     }).catch(() => {})
 
     return NextResponse.json({
-      id: newUser.id,
+      id: clerkUser.id,
       email,
       firstName,
       lastName,
       role,
-      message: "User created. Ask the user to complete a password reset on first sign-in.",
+      message: existingUsers.length > 0
+        ? "Existing account re-activated in this organization."
+        : "User created. Ask the user to complete a password reset on first sign-in.",
     })
   } catch (err) {
     if (process.env.NODE_ENV === "development") {
@@ -142,18 +174,11 @@ export async function POST(req: Request) {
     let message = "Failed to create user"
     if (err instanceof Error) {
       message = err.message
-      // Extract Clerk API error details
       const clerkErr = err as { clerkError?: boolean; errors?: Array<{ message?: string; longMessage?: string }> }
       if (clerkErr.clerkError && Array.isArray(clerkErr.errors) && clerkErr.errors.length > 0) {
         const first = clerkErr.errors[0]
         message = first?.longMessage ?? first?.message ?? message
       }
-    }
-    if (message.includes("already exists") || message.includes("duplicate") || message.includes("form_identifier_exists")) {
-      return NextResponse.json(
-        { error: "A user with this email or phone already exists" },
-        { status: 409 }
-      )
     }
     return NextResponse.json({ error: message }, { status: 500 })
   }

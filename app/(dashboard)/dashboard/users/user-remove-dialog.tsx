@@ -35,6 +35,9 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
   const [removing, setRemoving] = useState(false)
 
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || user.id
+  const isImmediate = user.status === "invited" || user.status === "suspended"
+  const hasData = user._count.timesheets > 0 || user._count.allocations > 0
+  const willBeImmediate = isImmediate && !hasData
 
   async function handleRemove() {
     setRemoving(true)
@@ -44,10 +47,12 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
       if (!res.ok) {
         throw new Error(data.error ?? "Failed to remove user")
       }
-      if (data?.status === "pending_approval") {
+      if (data?.status === "removed") {
+        toast.success(`${displayName} removed from organization`)
+      } else if (data?.status === "pending_approval") {
         toast.success(`${displayName} offboarding submitted for approval`)
       } else {
-        toast.success(`${displayName} removed from organization`)
+        toast.success(`${displayName} removed`)
       }
       onOpenChange(false)
       router.refresh()
@@ -62,9 +67,13 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Request offboarding</AlertDialogTitle>
+          <AlertDialogTitle>
+            {willBeImmediate ? "Remove user" : "Request offboarding"}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            Submit offboarding for {displayName}? A second admin must approve before access is revoked.
+            {willBeImmediate
+              ? `Remove ${displayName} from the organization? This will delete their account immediately.`
+              : `Submit offboarding for ${displayName}? A second admin must approve before access is revoked.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -77,7 +86,7 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
             disabled={removing}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {removing ? "Removing…" : "Remove"}
+            {removing ? "Removing…" : willBeImmediate ? "Remove now" : "Request offboard"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

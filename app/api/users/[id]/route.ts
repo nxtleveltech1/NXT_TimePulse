@@ -206,6 +206,55 @@ export async function DELETE(
     )
   }
 
+  // Invited / suspended users with no data: immediate removal (no approval needed)
+  if (existing.status === "invited" || existing.status === "suspended") {
+    const counts = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        _count: { select: { timesheets: true, allocations: true } },
+      },
+    })
+    const hasData = (counts?._count.timesheets ?? 0) > 0 || (counts?._count.allocations ?? 0) > 0
+
+    if (!hasData) {
+      // Clean up Clerk: remove membership + delete user
+      try {
+        const clerk = await clerkClient()
+        try {
+          await clerk.organizations.deleteOrganizationMembership({
+            organizationId: org,
+            userId: id,
+          })
+        } catch { /* membership may not exist */ }
+        try {
+          await clerk.users.deleteUser(id)
+        } catch { /* user may not exist in Clerk */ }
+      } catch { /* best-effort Clerk cleanup */ }
+
+      // Remove from DB
+      await prisma.user.delete({ where: { id } }).catch(() => {
+        // If FK constraints prevent hard delete, soft-delete instead
+        return prisma.user.update({
+          where: { id },
+          data: { status: "archived", offboardedAt: new Date() },
+        })
+      })
+
+      await prisma.auditLog.create({
+        data: {
+          userId,
+          action: "user.removed",
+          entityType: "user",
+          entityId: id,
+          details: `User removed: ${existing.email ?? id} (was ${existing.status})`,
+        },
+      })
+
+      return NextResponse.json({ success: true, status: "removed" })
+    }
+  }
+
+  // Active users or users with data: maker-checker offboard flow
   try {
     const requestRow = await createChangeRequest({
       orgId: org,
