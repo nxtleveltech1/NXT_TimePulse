@@ -3,7 +3,7 @@ import { clerkClient } from "@clerk/nextjs/server"
 import { type UserLifecycleStatus } from "@/generated/prisma"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
-import { requireCapability } from "@/lib/auth"
+import { requireCapability, requireAuth } from "@/lib/auth"
 import { userUpdateSchema } from "@/lib/schemas/user"
 import { createChangeRequest } from "@/lib/change-requests"
 import { logLifecycleEvent } from "@/lib/lifecycle"
@@ -21,6 +21,39 @@ const roleOrder = {
   manager: 2,
   admin: 3,
 } as const
+
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const userId = await requireAuth()
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { orgId } = await auth()
+  const { id } = await params
+
+  // Users can view their own profile; viewing others requires users.read capability
+  if (id !== userId) {
+    const { orgRole } = await auth()
+    const { hasCapability } = await import("@/lib/auth")
+    if (!hasCapability(orgRole, "users.read")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id, ...(orgId ? { orgId } : {}) },
+    include: {
+      _count: { select: { timesheets: true, allocations: true, leaveRequests: true } },
+    },
+  })
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 })
+  }
+
+  return NextResponse.json(user)
+}
 
 export async function PATCH(
   _req: Request,

@@ -58,10 +58,10 @@ export default clerkMiddleware(async (auth, req) => {
 
     // Admin routes require org:admin or org:manager
     if (isAdminRoute(req) && !isAdminOrManager(orgRole as string)) {
-      return new Response("Forbidden", { status: 403 })
+      return Response.json({ error: "Forbidden" }, { status: 403 })
     }
     if (isSuperAdminRoute(req) && orgRole !== "org:admin") {
-      return new Response("Forbidden", { status: 403 })
+      return Response.json({ error: "Forbidden" }, { status: 403 })
     }
   }
 })
