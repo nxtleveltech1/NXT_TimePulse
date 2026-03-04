@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
+import { ensureUser } from "@/lib/ensure-user"
 
 export async function GET(req: Request) {
   const { userId, orgId, orgRole } = await auth()
@@ -42,8 +43,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth()
+  const { userId, orgId } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  await ensureUser(userId, orgId ?? "org_default")
 
   let body: unknown
   try {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma"
 import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit"
+import { ensureUser } from "@/lib/ensure-user"
 
 const geoeventSchema = {
   lat: (v: unknown) => typeof v === "number" && v >= -90 && v <= 90,
@@ -12,10 +13,12 @@ const geoeventSchema = {
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth()
+  const { userId, orgId } = await auth()
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+
+  await ensureUser(userId, orgId ?? "org_default")
 
   const rateLimit = await checkDistributedRateLimit(`geoevent:${userId}`, 60, 60_000)
   if (!rateLimit.ok) {
@@ -77,24 +80,6 @@ export async function POST(req: Request) {
   }
 
   const { project_id: projectId } = geozoneResult[0]
-
-  // Ensure user exists in our DB (sync from Clerk if needed)
-  const { orgId } = await auth()
-  let user = await prisma.user.findUnique({ where: { id: userId } })
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        id: userId,
-        orgId: orgId ?? "org_default",
-        email: null,
-        role: "worker",
-        firstName: null,
-        lastName: null,
-        status: "active",
-        updatedAt: new Date(),
-      },
-    })
-  }
 
   const now = new Date()
   const dateStr = now.toISOString().split("T")[0]
