@@ -32,11 +32,10 @@ export async function GET(
   const { orgId } = await auth()
   const { id } = await params
 
-  // Users can view their own profile; viewing others requires users.read capability
   if (id !== userId) {
     const { orgRole } = await auth()
     const { hasCapability } = await import("@/lib/auth")
-    if (!hasCapability(orgRole, "users.read")) {
+    if (!hasCapability(orgRole ?? undefined, "users.read")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
   }
