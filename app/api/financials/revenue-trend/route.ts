@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
 import { resolveRate } from "@/lib/rates"
+import { getRateCardsByUser, getEffectiveRateCard } from "@/lib/rate-card-map"
 
 export async function GET(req: Request) {
   const { orgId, orgRole } = await auth()
@@ -33,12 +34,17 @@ export async function GET(req: Request) {
 
   const userIds = [...new Set(timesheets.map((t) => t.userId))]
   const projectIds = [...new Set(timesheets.map((t) => t.projectId))]
-  const allocations = userIds.length
-    ? await prisma.projectAllocation.findMany({
-        where: { userId: { in: userIds }, projectId: { in: projectIds } },
-        select: { userId: true, projectId: true, billRate: true },
-      })
-    : []
+
+  const [allocations, rateCardsByUser] = await Promise.all([
+    userIds.length
+      ? prisma.projectAllocation.findMany({
+          where: { userId: { in: userIds }, projectId: { in: projectIds } },
+          select: { userId: true, projectId: true, billRate: true },
+        })
+      : Promise.resolve([]),
+    getRateCardsByUser(orgId, userIds, projectIds),
+  ])
+
   const allocationKey = (userId: string, projectId: string) => `${userId}::${projectId}`
   const allocationMap = new Map(allocations.map((a) => [allocationKey(a.userId, a.projectId), a.billRate]))
 
@@ -59,10 +65,13 @@ export async function GET(req: Request) {
 
   for (const t of timesheets) {
     const key = periodKey(t.date)
+    const rc = getEffectiveRateCard(rateCardsByUser.get(t.userId), t.projectId, t.date)
     const resolved = resolveRate({
       userBaseRate: t.user.baseRate,
       userCurrency: t.user.currency,
       allocationBillRate: allocationMap.get(allocationKey(t.userId, t.projectId)),
+      rateCardPayRate: rc?.payRate,
+      rateCardBillRate: rc?.billRate,
     })
     const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60

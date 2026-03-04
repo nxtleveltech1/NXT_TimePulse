@@ -5,6 +5,7 @@ import { isAdminOrManager } from "@/lib/auth"
 import { getOvertimeMultiplier, getOvertimePolicy } from "@/lib/payroll"
 import { decimalToNumber } from "@/lib/serialize"
 import { resolveRate } from "@/lib/rates"
+import { getRateCardsByUser, getEffectiveRateCard } from "@/lib/rate-card-map"
 
 export async function GET(
   _req: Request,
@@ -38,24 +39,31 @@ export async function GET(
   ])
 
   const userIds = [...new Set(timesheets.map((t) => t.userId))]
-  const allocations = userIds.length
-    ? await prisma.projectAllocation.findMany({
-        where: { userId: { in: userIds }, projectId: id },
-        select: { userId: true, billRate: true },
-      })
-    : []
-  const billRateByUser = new Map(allocations.map((a) => [a.userId, a.billRate]))
 
+  const [allocations, rateCardsByUser] = await Promise.all([
+    userIds.length
+      ? prisma.projectAllocation.findMany({
+          where: { userId: { in: userIds }, projectId: id },
+          select: { userId: true, billRate: true },
+        })
+      : Promise.resolve([]),
+    getRateCardsByUser(orgId, userIds, [id]),
+  ])
+
+  const billRateByUser = new Map(allocations.map((a) => [a.userId, a.billRate]))
   const budget = decimalToNumber((project as { budget?: unknown }).budget)
 
   let revenue = 0
   let labourCost = 0
 
   for (const t of timesheets) {
+    const rc = getEffectiveRateCard(rateCardsByUser.get(t.userId), id, t.date)
     const resolved = resolveRate({
       userBaseRate: t.user.baseRate,
       userCurrency: t.user.currency,
       allocationBillRate: billRateByUser.get(t.userId),
+      rateCardPayRate: rc?.payRate,
+      rateCardBillRate: rc?.billRate,
     })
     const mult = getOvertimeMultiplier(t.date, overtimePolicy)
     const hours = t.durationMinutes / 60
