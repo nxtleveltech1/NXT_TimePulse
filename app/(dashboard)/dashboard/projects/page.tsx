@@ -8,15 +8,24 @@ import { ProjectsTable } from "./projects-table"
 import { isAdminOrManager } from "@/lib/auth"
 
 export default async function ProjectsPage() {
-  const { orgId, orgRole } = await auth()
+  const { userId, orgId, orgRole } = await auth()
   const isAdmin = isAdminOrManager(orgRole as string)
   const org = orgId ?? "org_default"
 
-  const projects = await prisma.project.findMany({
-    where: { orgId: org },
-    include: { _count: { select: { geozones: true } } },
-    orderBy: { createdAt: "desc" },
-  })
+  const projects = isAdmin
+    ? await prisma.project.findMany({
+        where: { orgId: org },
+        include: { _count: { select: { geozones: true } } },
+        orderBy: { createdAt: "desc" },
+      })
+    : await prisma.project.findMany({
+        where: {
+          orgId: org,
+          allocations: { some: { userId: userId!, isActive: true } },
+        },
+        include: { _count: { select: { geozones: true } } },
+        orderBy: { createdAt: "desc" },
+      })
 
   const serialized = projects.map((p) => ({
     ...p,
@@ -40,7 +49,7 @@ export default async function ProjectsPage() {
             )}
           </div>
           <p className="text-muted-foreground">
-            Manage projects and their geozones
+            {isAdmin ? "Manage projects and their geozones" : "Your assigned projects"}
           </p>
         </div>
         {isAdmin && (
@@ -55,11 +64,11 @@ export default async function ProjectsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All projects</CardTitle>
+          <CardTitle>{isAdmin ? "All projects" : "Your projects"}</CardTitle>
           <CardDescription>{projects.length} project(s)</CardDescription>
         </CardHeader>
         <CardContent>
-          <ProjectsTable projects={serialized} />
+          <ProjectsTable projects={serialized} isAdmin={isAdmin} />
         </CardContent>
       </Card>
     </div>

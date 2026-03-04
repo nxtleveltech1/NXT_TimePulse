@@ -34,7 +34,7 @@ type GeozoneWithProject = {
   project: { id: string; name: string }
 }
 
-export function GeozonesList({ geozones }: { geozones: GeozoneWithProject[] }) {
+export function GeozonesList({ geozones, isAdmin = true }: { geozones: GeozoneWithProject[]; isAdmin?: boolean }) {
   const router = useRouter()
   const [deleteTarget, setDeleteTarget] = useState<GeozoneWithProject | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -101,19 +101,21 @@ export function GeozonesList({ geozones }: { geozones: GeozoneWithProject[] }) {
               </Badge>
             </TableCell>
             <TableCell className="text-right">
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/dashboard/geozones/${g.id}`}>Edit</Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => setDeleteTarget(g)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
+              {isAdmin && (
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/dashboard/geozones/${g.id}`}>Edit</Link>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setDeleteTarget(g)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              )}
             </TableCell>
           </TableRow>
         ))}

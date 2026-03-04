@@ -34,7 +34,7 @@ type ProjectWithCount = {
   _count: { geozones: number; timesheets?: number }
 }
 
-export function ProjectsTable({ projects }: { projects: ProjectWithCount[] }) {
+export function ProjectsTable({ projects, isAdmin = true }: { projects: ProjectWithCount[]; isAdmin?: boolean }) {
   const router = useRouter()
   const [deleteTarget, setDeleteTarget] = useState<ProjectWithCount | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -103,14 +103,16 @@ export function ProjectsTable({ projects }: { projects: ProjectWithCount[] }) {
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/dashboard/projects/${p.id}`}>View</Link>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => setDeleteTarget(p)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setDeleteTarget(p)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                )}
               </div>
             </TableCell>
           </TableRow>

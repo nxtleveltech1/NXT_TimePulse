@@ -6,15 +6,26 @@ import { GeozonesMap } from "@/components/map/geozones-map"
 import { isAdminOrManager } from "@/lib/auth"
 
 export default async function GeozonesPage() {
-  const { orgId, orgRole } = await auth()
+  const { userId, orgId, orgRole } = await auth()
   const isAdmin = isAdminOrManager(orgRole as string)
   const org = orgId ?? "org_default"
 
-  const geozones = await prisma.geozone.findMany({
-    where: { project: { orgId: org } },
-    include: { project: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "desc" },
-  })
+  const geozones = isAdmin
+    ? await prisma.geozone.findMany({
+        where: { project: { orgId: org } },
+        include: { project: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "desc" },
+      })
+    : await prisma.geozone.findMany({
+        where: {
+          project: {
+            orgId: org,
+            allocations: { some: { userId: userId!, isActive: true } },
+          },
+        },
+        include: { project: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "desc" },
+      })
 
   return (
     <div className="space-y-6">
@@ -35,7 +46,9 @@ export default async function GeozonesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Map</CardTitle>
-          <CardDescription>All geozones across projects</CardDescription>
+          <CardDescription>
+            {isAdmin ? "All geozones across projects" : "Geozones for your assigned projects"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <GeozonesMap height={320} />
@@ -44,11 +57,11 @@ export default async function GeozonesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All geozones</CardTitle>
-          <CardDescription>{geozones.length} geozone(s) across projects</CardDescription>
+          <CardTitle>{isAdmin ? "All geozones" : "Your geozones"}</CardTitle>
+          <CardDescription>{geozones.length} geozone(s)</CardDescription>
         </CardHeader>
         <CardContent>
-          <GeozonesList geozones={geozones} />
+          <GeozonesList geozones={geozones} isAdmin={isAdmin} />
         </CardContent>
       </Card>
     </div>

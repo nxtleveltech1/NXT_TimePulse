@@ -30,9 +30,11 @@ import type { Geozone } from "@/generated/prisma"
 export function GeozonesTable({
   geozones,
   projectId: _projectId,
+  isAdmin = true,
 }: {
   geozones: Geozone[]
   projectId: string
+  isAdmin?: boolean
 }) {
   const router = useRouter()
   const [deleteTarget, setDeleteTarget] = useState<Geozone | null>(null)
@@ -96,19 +98,21 @@ export function GeozonesTable({
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard/geozones/${g.id}`}>Edit</Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => setDeleteTarget(g)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
+                {isAdmin && (
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/dashboard/geozones/${g.id}`}>Edit</Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setDeleteTarget(g)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                )}
               </TableCell>
             </TableRow>
           ))}

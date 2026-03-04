@@ -10,6 +10,7 @@ import { GeozonesTable } from "./geozones-table"
 import { GeozonesMap } from "@/components/map/geozones-map"
 import { ProjectFinancials } from "./project-financials"
 import { ProjectTeam } from "./project-team"
+import { isAdminOrManager } from "@/lib/auth"
 
 export default async function ProjectDetailPage({
   params,
@@ -17,32 +18,47 @@ export default async function ProjectDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const { orgId } = await auth()
+  const { userId, orgId, orgRole } = await auth()
+  const isAdmin = isAdminOrManager(orgRole as string)
   const org = orgId ?? "org_default"
+
+  // Workers must be allocated to the project to view it
+  if (!isAdmin && userId) {
+    const allocated = await prisma.projectAllocation.findFirst({
+      where: { userId, projectId: id, isActive: true },
+    })
+    if (!allocated) notFound()
+  }
 
   const [project, allocations, projects, users] = await Promise.all([
     prisma.project.findFirst({
       where: { id, orgId: org },
       include: { geozones: true },
     }),
-    prisma.projectAllocation.findMany({
-      where: { projectId: id, project: { orgId: org } },
-      include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, baseRate: true, currency: true } },
-        project: { select: { id: true, name: true } },
-      },
-      orderBy: { startDate: "desc" },
-    }),
-    prisma.project.findMany({
-      where: { orgId: org },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.user.findMany({
-      where: { orgId: org },
-      select: { id: true, firstName: true, lastName: true, baseRate: true, currency: true },
-      orderBy: { firstName: "asc" },
-    }),
+    isAdmin
+      ? prisma.projectAllocation.findMany({
+          where: { projectId: id, project: { orgId: org } },
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true, email: true, baseRate: true, currency: true } },
+            project: { select: { id: true, name: true } },
+          },
+          orderBy: { startDate: "desc" },
+        })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.project.findMany({
+          where: { orgId: org },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.user.findMany({
+          where: { orgId: org },
+          select: { id: true, firstName: true, lastName: true, baseRate: true, currency: true },
+          orderBy: { firstName: "asc" },
+        })
+      : Promise.resolve([]),
   ])
 
   if (!project) notFound()
@@ -89,14 +105,16 @@ export default async function ProjectDetailPage({
         </CardContent>
       </Card>
 
-      <ProjectFinancials projectId={id} />
+      {isAdmin && <ProjectFinancials projectId={id} />}
 
-      <ProjectTeam
-        projectId={id}
-        initialAllocations={serializedAllocations}
-        projects={projects}
-        users={serializedUsers}
-      />
+      {isAdmin && (
+        <ProjectTeam
+          projectId={id}
+          initialAllocations={serializedAllocations}
+          projects={projects}
+          users={serializedUsers}
+        />
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -104,16 +122,18 @@ export default async function ProjectDetailPage({
             <CardTitle>Geozones</CardTitle>
             <CardDescription>{project.geozones.length} geozone(s) for this project</CardDescription>
           </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/dashboard/projects/${id}/geozones/new`}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add geozone
-            </Link>
-          </Button>
+          {isAdmin && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/dashboard/projects/${id}/geozones/new`}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add geozone
+              </Link>
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <GeozonesMap projectId={id} height={280} />
-          <GeozonesTable geozones={project.geozones} projectId={id} />
+          <GeozonesTable geozones={project.geozones} projectId={id} isAdmin={isAdmin} />
         </CardContent>
       </Card>
     </div>
