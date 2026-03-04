@@ -42,13 +42,13 @@ export default async function TimesheetsPage({
     userId
       ? prisma.projectAllocation.findMany({
           where: { userId, isActive: true },
-          include: { project: { select: { id: true, name: true } } },
+          include: { project: { select: { id: true, name: true, isBillable: true, isDefault: true } } },
         })
       : Promise.resolve([]),
     isAdmin
       ? prisma.project.findMany({
           where: { orgId: org, status: "active" },
-          select: { id: true, name: true },
+          select: { id: true, name: true, isBillable: true, isDefault: true },
         })
       : Promise.resolve([]),
     prisma.timesheet.findFirst({

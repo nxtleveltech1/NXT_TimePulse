@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic"
+
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { serializeForClient } from "@/lib/serialize"
@@ -19,7 +21,7 @@ export default async function WeeklyTimesheetPage() {
   const [allocations, existingEntries] = await Promise.all([
     prisma.projectAllocation.findMany({
       where: { userId, isActive: true },
-      include: { project: { select: { id: true, name: true } } },
+      include: { project: { select: { id: true, name: true, isBillable: true } } },
     }),
     prisma.timesheet.findMany({
       where: {

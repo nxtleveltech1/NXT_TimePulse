@@ -131,6 +131,8 @@ model Project {
   client      String?
   description String?   @default("")
   status      String    @default("active")
+  isBillable  Boolean   @default(true) @map("is_billable")
+  isDefault   Boolean   @default(false) @map("is_default")
   defaultRate Decimal   @default(0) @map("default_rate") @db.Decimal(10, 2)
   clientRate  Decimal?  @map("client_rate") @db.Decimal(10, 2)
   budget      Decimal?  @map("budget") @db.Decimal(12, 2)

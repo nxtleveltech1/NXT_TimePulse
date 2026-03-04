@@ -84,6 +84,7 @@ export async function updateProject(projectId: string, data: {
   status?: string
   defaultRate?: number
   address?: string
+  isBillable?: boolean
 }) {
   const access = await requireAdminOrManager()
   if (!access) throw new Error("Forbidden")

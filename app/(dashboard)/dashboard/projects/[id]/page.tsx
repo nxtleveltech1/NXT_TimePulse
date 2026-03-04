@@ -100,6 +100,15 @@ export default async function ProjectDetailPage({
         </CardHeader>
         <CardContent className="space-y-2">
           <p><span className="font-medium">Status:</span> <Badge>{project.status}</Badge></p>
+          <p>
+            <span className="font-medium">Billing:</span>{" "}
+            <Badge variant={project.isBillable ? "default" : "secondary"}>
+              {project.isBillable ? "Billable" : "Non-billable"}
+            </Badge>
+            {project.isDefault && (
+              <Badge variant="outline" className="ml-2">Default project</Badge>
+            )}
+          </p>
           {project.address && <p><span className="font-medium">Address:</span> {project.address}</p>}
           {project.description && <p><span className="font-medium">Description:</span> {project.description}</p>}
         </CardContent>

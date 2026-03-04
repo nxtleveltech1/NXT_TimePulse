@@ -81,6 +81,11 @@ export async function POST(req: Request) {
 
   const { project_id: projectId } = geozoneResult[0]
 
+  const proj = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { isBillable: true },
+  })
+
   const now = new Date()
   const dateStr = now.toISOString().split("T")[0]
   const geozoneIdValue = geozoneId as string
@@ -109,6 +114,7 @@ export async function POST(req: Request) {
         durationMinutes: 0,
         breakMinutes: 0,
         overtimeMinutes: 0,
+        isBillable: proj?.isBillable ?? true,
         updatedAt: now,
       },
     })

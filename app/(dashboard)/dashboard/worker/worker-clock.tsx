@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { MapPin, RotateCcw, LogOut, Timer } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -21,7 +20,7 @@ type OpenTimesheet = {
 
 type Allocation = {
   id: string
-  project: { id: string; name: string }
+  project: { id: string; name: string; isBillable: boolean; isDefault?: boolean }
   projectId: string
 }
 
@@ -47,6 +46,8 @@ export function WorkerClock({
   async function manualClockIn(projectId: string, geozoneId: string | null) {
     setLoading(true)
     try {
+      const alloc = allocations.find((a) => a.projectId === projectId)
+      const billable = alloc?.project.isBillable === false ? false : isBillable
       const res = await fetch("/api/timesheets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -56,7 +57,7 @@ export function WorkerClock({
           clockIn: new Date().toISOString(),
           source: "timer",
           notes: "",
-          isBillable,
+          isBillable: billable,
         }),
       })
       if (!res.ok) throw new Error("Failed")
@@ -81,18 +82,18 @@ export function WorkerClock({
       const res = await fetch(`/api/timesheets/${activeTimesheet.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clockOut: new Date().toISOString(),
-          status: "pending",
-        }),
+        body: JSON.stringify({ clockOut: new Date().toISOString() }),
       })
-      if (!res.ok) throw new Error("Failed")
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.error ?? `Clock out failed (${res.status})`)
+      }
       setClockedIn(false)
       setActiveTimesheet(null)
       toast.success("Clocked out")
       window.location.reload()
-    } catch {
-      toast.error("Failed to clock out")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to clock out")
     } finally {
       setLoading(false)
     }
@@ -198,18 +199,8 @@ export function WorkerClock({
             </Button>
           )}
 
-          {/* Billable toggle + project label */}
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">Clock in with a project</p>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <Checkbox
-                id="billable"
-                checked={isBillable}
-                onCheckedChange={(c) => setIsBillable(!!c)}
-              />
-              <span className="text-sm">Billable</span>
-            </label>
-          </div>
+          {/* Project label */}
+          <p className="text-sm font-medium text-muted-foreground">Clock in with a project</p>
 
           {/* Project buttons */}
           {allocations.length === 0 ? (
@@ -234,7 +225,14 @@ export function WorkerClock({
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
                       <MapPin className="h-3.5 w-3.5 text-primary" />
                     </span>
-                    {a.project.name}
+                    <span className="flex items-center gap-2">
+                      {a.project.name}
+                      {!a.project.isBillable && (
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Non-billable
+                        </span>
+                      )}
+                    </span>
                   </Button>
                 </motion.div>
               ))}

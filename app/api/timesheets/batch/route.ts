@@ -36,12 +36,19 @@ export async function POST(req: Request) {
     )
   }
 
+  const projects = await prisma.project.findMany({
+    where: { id: { in: projectIds } },
+    select: { id: true, isBillable: true },
+  })
+  const projectBillableMap = new Map(projects.map((p) => [p.id, p.isBillable]))
+
   const created = await prisma.$transaction(
     entries.map((e) => {
       const clockIn = new Date(e.clockIn)
       const clockOut = new Date(e.clockOut)
       const rawDuration = Math.floor((clockOut.getTime() - clockIn.getTime()) / 60000)
       const durationMinutes = Math.max(0, rawDuration - (e.breakMinutes ?? 0))
+      const projBillable = projectBillableMap.get(e.projectId) ?? true
       return prisma.timesheet.create({
         data: {
           userId,
@@ -54,7 +61,7 @@ export async function POST(req: Request) {
           status: "pending",
           notes: e.notes ?? "",
           breakMinutes: e.breakMinutes ?? 0,
-          isBillable: e.isBillable ?? true,
+          isBillable: projBillable === false ? false : (e.isBillable ?? true),
         },
       })
     })

@@ -40,7 +40,7 @@ import { manualEntrySchema, type ManualEntryValues } from "@/lib/validations/tim
 type Allocation = {
   id: string
   projectId: string
-  project: { id: string; name: string }
+  project: { id: string; name: string; isBillable: boolean }
 }
 
 interface ManualEntryDialogProps {
@@ -136,7 +136,14 @@ export function ManualEntryDialog({ allocations, onSuccess, open: controlledOpen
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(val) => {
+                      field.onChange(val)
+                      const alloc = allocations.find((a) => a.projectId === val)
+                      if (alloc) form.setValue("isBillable", alloc.project.isBillable)
+                    }}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select project" />
@@ -145,7 +152,14 @@ export function ManualEntryDialog({ allocations, onSuccess, open: controlledOpen
                     <SelectContent>
                       {allocations.map((a) => (
                         <SelectItem key={a.id} value={a.projectId}>
-                          {a.project.name}
+                          <span className="flex items-center gap-2">
+                            {a.project.name}
+                            {!a.project.isBillable && (
+                              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                                Non-billable
+                              </span>
+                            )}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -229,14 +243,27 @@ export function ManualEntryDialog({ allocations, onSuccess, open: controlledOpen
             <FormField
               control={form.control}
               name="isBillable"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-3">
-                  <FormLabel className="cursor-pointer">Billable</FormLabel>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const selectedAlloc = allocations.find((a) => a.projectId === form.watch("projectId"))
+                const projectNonBillable = selectedAlloc?.project.isBillable === false
+                return (
+                  <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <FormLabel className="cursor-pointer">Billable</FormLabel>
+                      {projectNonBillable && (
+                        <p className="text-xs text-muted-foreground">This project is non-billable</p>
+                      )}
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={projectNonBillable}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )
+              }}
             />
 
             <DialogFooter>

@@ -27,6 +27,22 @@ async function main() {
     })
   }
 
+  const dailyOps = await prisma.project.upsert({
+    where: { id: "proj_nxt_daily_ops" },
+    create: {
+      id: "proj_nxt_daily_ops",
+      orgId: ORG_ID,
+      name: "NXT DAILY OPERATIONS",
+      client: "NXT TIME PULSE",
+      description: "Non-billable default project for daily operations",
+      status: "active",
+      isBillable: false,
+      isDefault: true,
+      defaultRate: 0,
+    },
+    update: { orgId: ORG_ID, name: "NXT DAILY OPERATIONS", status: "active", isBillable: false, isDefault: true },
+  })
+
   const project = await prisma.project.upsert({
     where: { id: "proj_nxt_location" },
     create: {
@@ -36,6 +52,7 @@ async function main() {
       client: "NXT TIME PULSE",
       description: "Primary worksite for NXT TIME PULSE",
       status: "active",
+      isBillable: true,
       defaultRate: 25,
     },
     update: { orgId: ORG_ID, name: "NXT Location", status: "active" },
@@ -57,6 +74,23 @@ async function main() {
 
   const allUserIds = [...users.map((u) => u.id), "user_3A9oui6sqwfusqdXCLKeNJ1pCPW"]
   for (const uid of allUserIds) {
+    const roleForUser = uid === "user_3A9oui6sqwfusqdXCLKeNJ1pCPW" ? "admin" : (users.find((u) => u.id === uid)?.role === "manager" ? "supervisor" : "field_worker")
+
+    await prisma.projectAllocation.upsert({
+      where: {
+        userId_projectId: { userId: uid, projectId: dailyOps.id },
+      },
+      create: {
+        userId: uid,
+        projectId: dailyOps.id,
+        roleOnProject: roleForUser,
+        billRate: null,
+        startDate: new Date("2025-01-01"),
+        isActive: true,
+      },
+      update: { isActive: true },
+    })
+
     await prisma.projectAllocation.upsert({
       where: {
         userId_projectId: { userId: uid, projectId: project.id },
@@ -64,7 +98,7 @@ async function main() {
       create: {
         userId: uid,
         projectId: project.id,
-        roleOnProject: uid === "user_3A9oui6sqwfusqdXCLKeNJ1pCPW" ? "admin" : (users.find((u) => u.id === uid)?.role === "manager" ? "supervisor" : "field_worker"),
+        roleOnProject: roleForUser,
         billRate: null,
         startDate: new Date("2025-01-01"),
         isActive: true,

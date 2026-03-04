@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 type Allocation = {
   id: string
   projectId: string
-  project: { id: string; name: string }
+  project: { id: string; name: string; isBillable: boolean }
 }
 
 type ExistingEntry = {
@@ -149,7 +149,7 @@ export function WeeklyGrid({ allocations, existingEntries }: WeeklyGridProps) {
 
         const clockIn = new Date(`${dateStr}T${DEFAULT_CLOCK_IN}`).toISOString()
         const clockOut = hoursToClockOut(day, hours)
-        entries.push({ projectId: alloc.projectId, date: dateStr, clockIn, clockOut, isBillable: true })
+        entries.push({ projectId: alloc.projectId, date: dateStr, clockIn, clockOut, isBillable: alloc.project.isBillable })
       }
     }
 

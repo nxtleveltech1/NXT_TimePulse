@@ -30,6 +30,8 @@ export interface Project {
   client: string
   description: string
   status: ProjectStatus
+  is_billable: boolean
+  is_default: boolean
   default_rate: number
   start_date: string
   end_date: string | null

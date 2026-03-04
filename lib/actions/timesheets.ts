@@ -33,6 +33,7 @@ export async function approveTimesheet(timesheetId: string) {
   })
 
   revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
   return updated
 }
 
@@ -63,6 +64,7 @@ export async function rejectTimesheet(timesheetId: string, reason?: string) {
   })
 
   revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
   return updated
 }
 
@@ -94,6 +96,7 @@ export async function clockIn(projectId: string, geozoneId?: string) {
 
   revalidatePath("/dashboard/worker")
   revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
   return timesheet
 }
 
@@ -117,5 +120,6 @@ export async function clockOut(timesheetId: string) {
 
   revalidatePath("/dashboard/worker")
   revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
   return updated
 }

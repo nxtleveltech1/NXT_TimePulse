@@ -63,6 +63,11 @@ export async function POST(req: Request) {
 
   if (!projectId) return NextResponse.json({ error: "projectId required" }, { status: 400 })
 
+  const proj = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { isBillable: true },
+  })
+
   const dateStr = clockIn.toISOString().split("T")[0]
   const breakMinutesVal = typeof b.breakMinutes === "number" ? b.breakMinutes : 0
   const rawDuration = clockOut
@@ -87,7 +92,7 @@ export async function POST(req: Request) {
         notes: typeof b.notes === "string" ? b.notes : "",
         breakMinutes: typeof b.breakMinutes === "number" ? b.breakMinutes : 0,
         overtimeMinutes: typeof b.overtimeMinutes === "number" ? b.overtimeMinutes : 0,
-        isBillable: typeof b.isBillable === "boolean" ? b.isBillable : true,
+        isBillable: proj?.isBillable === false ? false : (typeof b.isBillable === "boolean" ? b.isBillable : true),
       },
     })
     await prisma.auditLog.create({

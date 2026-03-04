@@ -65,7 +65,8 @@ export async function PATCH(
   if (adjustmentReason) data.adjustmentReason = adjustmentReason
 
   const statusChanged = data.status !== undefined && data.status !== timesheet.status
-  if (statusChanged && isAdmin && !adjustmentReason) {
+  const isOwnClockOut = timesheet.userId === userId && data.clockOut && !timesheet.clockOut
+  if (statusChanged && isAdmin && !adjustmentReason && !isOwnClockOut) {
     return NextResponse.json(
       { error: "adjustmentReason required when changing status" },
       { status: 400 }

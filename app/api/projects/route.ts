@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       client: typeof b.client === "string" ? b.client : null,
       description: typeof b.description === "string" ? b.description : "",
       status: typeof b.status === "string" ? b.status : "active",
+      isBillable: typeof b.isBillable === "boolean" ? b.isBillable : true,
       defaultRate: typeof b.defaultRate === "number" ? b.defaultRate : 0,
       clientRate: typeof b.clientRate === "number" ? b.clientRate : null,
       address: typeof b.address === "string" ? b.address : "",

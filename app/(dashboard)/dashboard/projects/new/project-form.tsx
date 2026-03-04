@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 
 const schema = z.object({
@@ -31,6 +32,7 @@ const schema = z.object({
   description: z.string().optional(),
   address: z.string().optional(),
   status: z.enum(["active", "completed", "on_hold", "archived"]).default("active"),
+  isBillable: z.boolean().default(true),
   defaultRate: z.coerce.number().min(0).default(0),
   clientRate: z.coerce.number().min(0).optional(),
 })
@@ -47,6 +49,7 @@ export function ProjectForm({ orgId: _orgId }: { orgId: string }) {
       description: "",
       address: "",
       status: "active",
+      isBillable: true,
       defaultRate: 0,
       clientRate: undefined,
     },
@@ -129,6 +132,23 @@ export function ProjectForm({ orgId: _orgId }: { orgId: string }) {
                     <Input {...field} placeholder="Site address" />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isBillable"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <FormLabel className="cursor-pointer">Billable</FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Non-billable projects won't count toward revenue
+                    </p>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
                 </FormItem>
               )}
             />

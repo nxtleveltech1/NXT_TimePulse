@@ -31,6 +31,8 @@ type ProjectWithCount = {
   name: string
   client: string | null
   status: string
+  isBillable: boolean
+  isDefault: boolean
   _count: { geozones: number; timesheets?: number }
 }
 
@@ -82,6 +84,7 @@ export function ProjectsTable({ projects, isAdmin = true }: { projects: ProjectW
         <TableRow>
           <TableHead className="sticky left-0 z-10 bg-background">Name</TableHead>
           <TableHead>Client</TableHead>
+          <TableHead>Billing</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Geozones</TableHead>
           <TableHead className="text-right">Actions</TableHead>
@@ -92,6 +95,16 @@ export function ProjectsTable({ projects, isAdmin = true }: { projects: ProjectW
           <TableRow key={p.id}>
             <TableCell className="sticky left-0 z-10 bg-background font-medium">{p.name}</TableCell>
             <TableCell>{p.client ?? "—"}</TableCell>
+            <TableCell>
+              <div className="flex items-center gap-1.5">
+                <Badge variant={p.isBillable ? "default" : "secondary"}>
+                  {p.isBillable ? "Billable" : "Non-billable"}
+                </Badge>
+                {p.isDefault && (
+                  <Badge variant="outline" className="text-[10px]">Default</Badge>
+                )}
+              </div>
+            </TableCell>
             <TableCell>
               <Badge variant={p.status === "active" ? "default" : "secondary"}>
                 {p.status}
