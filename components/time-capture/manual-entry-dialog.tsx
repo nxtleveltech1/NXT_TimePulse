@@ -46,11 +46,20 @@ type Allocation = {
 interface ManualEntryDialogProps {
   allocations: Allocation[]
   onSuccess?: () => void
+  /** Controlled mode — omit to use internal state with built-in trigger button */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function ManualEntryDialog({ allocations, onSuccess }: ManualEntryDialogProps) {
-  const [open, setOpen] = useState(false)
+export function ManualEntryDialog({ allocations, onSuccess, open: controlledOpen, onOpenChange }: ManualEntryDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = isControlled
+    ? (v: boolean) => onOpenChange?.(v)
+    : setInternalOpen
 
   const form = useForm<ManualEntryValues>({
     resolver: zodResolver(manualEntrySchema),
@@ -104,12 +113,14 @@ export function ManualEntryDialog({ allocations, onSuccess }: ManualEntryDialogP
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Entry
-        </Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Entry
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add Time Entry</DialogTitle>

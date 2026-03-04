@@ -5,13 +5,20 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { isAdminOrManager } from "@/lib/auth"
 import { DashboardCards } from "./dashboard-cards"
+import { WorkerDashboard } from "./worker-dashboard"
 
 export default async function DashboardPage() {
   const { userId, orgId, orgRole } = await auth()
   if (!userId) return null
 
-  const org = orgId ?? "org_default"
   const isAdmin = isAdminOrManager(orgRole as string)
+
+  // Workers get their own purpose-built dashboard
+  if (!isAdmin) {
+    return <WorkerDashboard />
+  }
+
+  const org = orgId ?? "org_default"
 
   const [projectCount, geozoneCount, timesheetCount, userCount, pendingTimesheets] =
     await Promise.all([
@@ -31,14 +38,12 @@ export default async function DashboardPage() {
     { label: "Users", value: userCount, icon: "users", href: "/dashboard/users" },
   ]
 
-  const adminStats: { label: string; value: number | string; icon: string; href: string }[] = isAdmin
-    ? [
-        { label: "Manage Users", value: userCount, icon: "users", href: "/dashboard/users" },
-        { label: "Reports", value: "→", icon: "bar-chart-3", href: "/dashboard/reports" },
-        { label: "Financials", value: "→", icon: "file-text", href: "/dashboard/financials" },
-        { label: "Audit Log", value: "→", icon: "scroll-text", href: "/dashboard/audit" },
-      ]
-    : []
+  const adminStats: { label: string; value: number | string; icon: string; href: string }[] = [
+    { label: "Manage Users", value: userCount, icon: "users", href: "/dashboard/users" },
+    { label: "Reports", value: "→", icon: "bar-chart-3", href: "/dashboard/reports" },
+    { label: "Financials", value: "→", icon: "file-text", href: "/dashboard/financials" },
+    { label: "Audit Log", value: "→", icon: "scroll-text", href: "/dashboard/audit" },
+  ]
 
   return (
     <div className="space-y-8">
@@ -67,17 +72,15 @@ export default async function DashboardPage() {
 
       <DashboardCards stats={stats} />
 
-      {isAdmin && adminStats.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">Admin Tools</h2>
-            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-              Admin only
-            </span>
-          </div>
-          <DashboardCards stats={adminStats} />
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Admin Tools</h2>
+          <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            Admin only
+          </span>
         </div>
-      )}
+        <DashboardCards stats={adminStats} />
+      </div>
     </div>
   )
 }
