@@ -208,32 +208,36 @@ export function WorkerClock({
               No project allocations. Contact your manager.
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {allocations.map((a) => (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+              {allocations.map((a, i) => (
                 <motion.div
                   key={a.id}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: i * 0.05, ease: "easeOut" }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                 >
-                  <Button
-                    variant="outline"
+                  <button
+                    type="button"
                     disabled={loading}
                     onClick={() => manualClockIn(a.projectId, null)}
-                    className="w-full min-h-[72px] justify-start gap-4 px-5 py-4 text-base font-semibold hover:border-primary/50 hover:bg-primary/10"
+                    className="flex w-full flex-col items-center justify-center rounded-xl border min-h-[84px] py-4 px-3 transition-all duration-200 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/40 disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <MapPin className="h-[18px] w-[18px] text-primary" />
-                    </span>
-                    <span className="flex items-center gap-2">
-                      {a.project.name}
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15">
+                        <MapPin className="h-5 w-5" />
+                      </span>
+                      <span className="text-sm font-semibold leading-tight text-center">
+                        {a.project.name}
+                      </span>
                       {!a.project.isBillable && (
                         <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                           Non-billable
                         </span>
                       )}
-                    </span>
-                  </Button>
+                    </div>
+                  </button>
                 </motion.div>
               ))}
             </div>

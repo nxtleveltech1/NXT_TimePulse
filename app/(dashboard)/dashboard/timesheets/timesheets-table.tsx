@@ -4,12 +4,15 @@ import { useState, useMemo } from "react"
 import {
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type ColumnFiltersState,
   type SortingState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, Pencil, Copy } from "lucide-react"
+import { ArrowUpDown, Pencil, Copy, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { motion } from "motion/react"
 import {
   Table,
@@ -22,6 +25,14 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Dialog,
@@ -71,6 +82,8 @@ export function TimesheetsTable({
   const [editTarget, setEditTarget] = useState<TimesheetWithRelations | null>(null)
   const [reason, setReason] = useState("")
   const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = useState("")
 
   const columns = useMemo<ColumnDef<TimesheetWithRelations>[]>(() => {
     const base: ColumnDef<TimesheetWithRelations>[] = [
@@ -201,10 +214,26 @@ export function TimesheetsTable({
   const table = useReactTable({
     data: timesheets,
     columns,
-    state: { sorting },
+    state: { sorting, columnFilters, globalFilter },
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue: string) => {
+      const search = filterValue.toLowerCase()
+      const worker = [row.original.user.firstName, row.original.user.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      const project = row.original.project.name.toLowerCase()
+      return worker.includes(search) || project.includes(search)
+    },
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    initialState: {
+      pagination: { pageSize: 20 },
+    },
   })
 
   async function submitStatus(id: string, status: string) {
@@ -300,6 +329,15 @@ export function TimesheetsTable({
   if (isMobile) {
     return (
       <>
+        <div className="relative pb-3">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search worker or project…"
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="pl-8 h-9"
+          />
+        </div>
         <div className="space-y-3">
           {table.getRowModel().rows.map((row) => {
             const r = row.original
@@ -369,6 +407,21 @@ export function TimesheetsTable({
 
   return (
     <>
+      <div className="flex items-center gap-2 pb-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search worker or project…"
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="pl-8 h-9"
+          />
+        </div>
+        <p className="ml-auto text-sm text-muted-foreground">
+          {table.getFilteredRowModel().rows.length} row(s)
+        </p>
+      </div>
+
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((hg) => (
@@ -411,6 +464,72 @@ export function TimesheetsTable({
           ))}
         </TableBody>
       </Table>
+
+      {table.getPageCount() > 1 && (
+        <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-muted-foreground">Rows</span>
+              <Select
+                value={String(table.getState().pagination.pageSize)}
+                onValueChange={(v) => table.setPageSize(Number(v))}
+              >
+                <SelectTrigger className="h-8 w-16">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 20, 50, 100].map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reviewDialog}
       {editTarget && (

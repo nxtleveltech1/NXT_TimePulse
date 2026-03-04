@@ -4,6 +4,7 @@ import { isAdminOrManager } from "@/lib/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { TimesheetsTable } from "./timesheets-table"
+import { TimesheetsToolbar } from "./timesheets-toolbar"
 import { TimesheetsViewToggle } from "./timesheets-view-toggle"
 import { ManualEntryDialog } from "@/components/time-capture/manual-entry-dialog"
 import { WorkerClock } from "@/app/(dashboard)/dashboard/worker/worker-clock"
@@ -14,21 +15,39 @@ import { LayoutGrid } from "lucide-react"
 export default async function TimesheetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<{
+    status?: string
+    from?: string
+    to?: string
+    project?: string
+    worker?: string
+    source?: string
+    billable?: string
+  }>
 }) {
   const { userId, orgId, orgRole } = await auth()
   if (!userId) return null
-  const { status } = await searchParams
+  const { status, from, to, project, worker, source, billable } = await searchParams
   const isAdmin = isAdminOrManager(orgRole as string)
   const org = orgId ?? "org_default"
 
-  const where: { userId?: string; status?: string; project?: { orgId: string } } = {
+  const where: Record<string, unknown> = {
     project: { orgId: org },
   }
   if (!isAdmin && userId) where.userId = userId
+  if (isAdmin && worker) where.userId = worker
   if (status) where.status = status
+  if (project) where.projectId = project
+  if (source) where.source = source
+  if (billable === "yes") where.isBillable = true
+  if (billable === "no") where.isBillable = false
+  if (from || to) {
+    where.date = {} as Record<string, string>
+    if (from) (where.date as Record<string, string>).gte = from
+    if (to) (where.date as Record<string, string>).lte = to
+  }
 
-  const [timesheets, allocations, orgProjects, openTimesheet, recentTimesheets] = await Promise.all([
+  const [timesheets, allocations, orgProjects, openTimesheet, recentTimesheets, orgWorkers] = await Promise.all([
     prisma.timesheet.findMany({
       where,
       include: {
@@ -62,6 +81,13 @@ export default async function TimesheetsPage({
       orderBy: { date: "desc" },
       take: 5,
     }),
+    isAdmin
+      ? prisma.user.findMany({
+          where: { orgId: org },
+          select: { id: true, firstName: true, lastName: true },
+          orderBy: { firstName: "asc" },
+        })
+      : Promise.resolve([]),
   ])
 
   const projectsForDialog = isAdmin && orgProjects.length > 0
@@ -71,6 +97,14 @@ export default async function TimesheetsPage({
   const lastCompletedTimesheet = recentTimesheets.find(
     (t) => t.clockOut !== null && t.id !== openTimesheet?.id
   ) ?? null
+
+  const toolbarProjects = (isAdmin ? orgProjects : allocations.map((a) => a.project)).map(
+    (p) => ({ id: p.id, name: p.name })
+  )
+  const toolbarWorkers = orgWorkers.map((w) => ({
+    id: w.id,
+    name: [w.firstName, w.lastName].filter(Boolean).join(" ") || w.id,
+  }))
 
   return (
     <div className="space-y-6">
@@ -118,6 +152,11 @@ export default async function TimesheetsPage({
           <CardDescription>{timesheets.length} entries</CardDescription>
         </CardHeader>
         <CardContent>
+          <TimesheetsToolbar
+            projects={toolbarProjects}
+            workers={toolbarWorkers}
+            isAdmin={isAdmin}
+          />
           <TimesheetsViewToggle
             tableView={<TimesheetsTable timesheets={serializeForClient(timesheets)} isAdmin={isAdmin} />}
             entries={timesheets.map((t) => ({
