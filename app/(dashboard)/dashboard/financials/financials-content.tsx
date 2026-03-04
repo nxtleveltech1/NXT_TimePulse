@@ -12,8 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Area, AreaChart, Bar, BarChart, XAxis, YAxis } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/utils"
@@ -31,6 +31,18 @@ type Summary = {
 }
 
 type Trend = { period: string; revenue: number; cost: number; billableHours: number; nonBillableHours: number }
+
+function formatPeriod(period: string): string {
+  const [year, month] = period.split("-")
+  const date = new Date(Number(year), Number(month) - 1)
+  return date.toLocaleDateString("en-ZA", { month: "short", year: "numeric" })
+}
+
+function formatCompact(value: number): string {
+  if (Math.abs(value) >= 1_000_000) return `R${(value / 1_000_000).toFixed(1)}M`
+  if (Math.abs(value) >= 1_000) return `R${(value / 1_000).toFixed(0)}k`
+  return `R${value}`
+}
 
 export function FinancialsContent() {
   const [from, setFrom] = useState(() => {
@@ -83,11 +95,16 @@ export function FinancialsContent() {
   }
 
   const chartConfig = {
-    revenue: { color: "hsl(var(--chart-1))", label: "Revenue" },
-    cost: { color: "hsl(var(--chart-2))", label: "Cost" },
-    billableHours: { color: "hsl(var(--chart-3))", label: "Billable hrs" },
-    nonBillableHours: { color: "hsl(var(--chart-4))", label: "Non-billable hrs" },
+    revenue: { color: "oklch(0.72 0.19 155)", label: "Revenue" },
+    cost: { color: "oklch(0.65 0.20 27)", label: "Cost" },
+    billableHours: { color: "oklch(0.70 0.18 220)", label: "Billable" },
+    nonBillableHours: { color: "oklch(0.55 0.12 300)", label: "Non-billable" },
   }
+
+  const formattedTrend = trend.map((t) => ({
+    ...t,
+    label: formatPeriod(t.period),
+  }))
 
   return (
     <div className="space-y-6">
@@ -152,12 +169,24 @@ export function FinancialsContent() {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[300px]">
-                    <AreaChart data={trend}>
-                      <XAxis dataKey="period" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent formatter={(v) => formatCurrency(Number(v))} />} />
-                      <Area type="monotone" dataKey="revenue" stroke={chartConfig.revenue.color} fill={chartConfig.revenue.color} fillOpacity={0.3} name="Revenue" />
-                      <Area type="monotone" dataKey="cost" stroke={chartConfig.cost.color} fill={chartConfig.cost.color} fillOpacity={0.3} name="Cost" />
+                    <AreaChart data={formattedTrend} margin={{ top: 4, right: 4, bottom: 0, left: -8 }}>
+                      <defs>
+                        <linearGradient id="fillRevenue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={chartConfig.revenue.color} stopOpacity={0.4} />
+                          <stop offset="95%" stopColor={chartConfig.revenue.color} stopOpacity={0.02} />
+                        </linearGradient>
+                        <linearGradient id="fillCost" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={chartConfig.cost.color} stopOpacity={0.4} />
+                          <stop offset="95%" stopColor={chartConfig.cost.color} stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis tickLine={false} axisLine={false} tickFormatter={formatCompact} tickMargin={4} width={52} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(v) => formatCurrency(Number(v))} indicator="line" />} />
+                      <Area type="monotone" dataKey="revenue" stroke={chartConfig.revenue.color} strokeWidth={2} fill="url(#fillRevenue)" />
+                      <Area type="monotone" dataKey="cost" stroke={chartConfig.cost.color} strokeWidth={2} fill="url(#fillCost)" />
+                      <ChartLegend content={<ChartLegendContent />} />
                     </AreaChart>
                   </ChartContainer>
                 </CardContent>
@@ -169,12 +198,14 @@ export function FinancialsContent() {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[300px]">
-                    <BarChart data={trend} stackOffset="sign">
-                      <XAxis dataKey="period" />
-                      <YAxis />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="billableHours" stackId="a" fill={chartConfig.billableHours.color} name="Billable hrs" />
-                      <Bar dataKey="nonBillableHours" stackId="a" fill={chartConfig.nonBillableHours.color} name="Non-billable hrs" />
+                    <BarChart data={formattedTrend} margin={{ top: 4, right: 4, bottom: 0, left: -8 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                      <YAxis tickLine={false} axisLine={false} tickFormatter={(v: number) => `${v}h`} tickMargin={4} width={40} />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(v) => `${Number(v).toFixed(1)}h`} indicator="dot" />} />
+                      <Bar dataKey="billableHours" stackId="a" fill={chartConfig.billableHours.color} radius={[0, 0, 4, 4]} />
+                      <Bar dataKey="nonBillableHours" stackId="a" fill={chartConfig.nonBillableHours.color} radius={[4, 4, 0, 0]} />
+                      <ChartLegend content={<ChartLegendContent />} />
                     </BarChart>
                   </ChartContainer>
                 </CardContent>
