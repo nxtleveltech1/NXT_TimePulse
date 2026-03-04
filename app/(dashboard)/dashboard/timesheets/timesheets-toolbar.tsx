@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { BulkApproveWeekDialog } from "./bulk-approve-week-dialog"
+import { BulkRejectDayDialog } from "./bulk-reject-day-dialog"
 
 const STATUS_OPTIONS = ["pending", "approved", "rejected"] as const
 const SOURCE_OPTIONS = ["manual", "timer", "geofence", "kiosk"] as const
@@ -302,6 +304,15 @@ export function TimesheetsToolbar({
             <X className="h-3.5 w-3.5" />
             Clear ({activeFilterCount})
           </Button>
+        )}
+
+        {/* Bulk admin actions */}
+        {isAdmin && workers.length > 0 && (
+          <>
+            <div className="mx-1 h-5 w-px bg-border" />
+            <BulkApproveWeekDialog workers={workers} />
+            <BulkRejectDayDialog workers={workers} />
+          </>
         )}
       </div>
     </div>

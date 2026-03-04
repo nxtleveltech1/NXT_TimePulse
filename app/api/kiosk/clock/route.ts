@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { resolveNotifications } from "@/lib/resolve-notifications"
 
 const KIOSK_SECRET = process.env.KIOSK_SECRET
 
@@ -67,6 +68,7 @@ export async function POST(req: Request) {
         details: `Kiosk clock-in for project ${projectId}`,
       },
     })
+    resolveNotifications(userId, "clock_in_reminder").catch(() => {})
     return NextResponse.json({ timesheet })
   }
 
@@ -97,6 +99,7 @@ export async function POST(req: Request) {
         details: `Kiosk clock-out, duration ${durationMinutes}m`,
       },
     })
+    resolveNotifications(userId, "clock_out_reminder").catch(() => {})
     return NextResponse.json({ timesheet: updated })
   }
 

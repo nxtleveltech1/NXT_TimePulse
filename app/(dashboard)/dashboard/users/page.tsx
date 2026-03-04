@@ -70,7 +70,7 @@ export default async function UsersPage() {
   try {
     ;[users, userRates, assignments, lifecycleEvents, pendingRequests] = await Promise.all([
       prisma.user.findMany({
-        where: { orgId: org },
+        where: { orgId: org, status: { notIn: ["offboarded", "archived"] } },
         include: { _count: { select: { timesheets: true, allocations: true } } },
         orderBy: { createdAt: "desc" },
       }),
@@ -141,6 +141,7 @@ export default async function UsersPage() {
         ) AS allocations_count
       FROM users u
       WHERE u.org_id = ${org}
+        AND u.status NOT IN ('offboarded', 'archived')
       ORDER BY u.created_at DESC
     `)
 

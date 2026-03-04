@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma"
 export async function ensureUser(userId: string, orgId: string) {
   const existing = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true },
+    select: { id: true, status: true },
   })
   if (existing) return existing
 
@@ -17,6 +17,7 @@ export async function ensureUser(userId: string, orgId: string) {
   let firstName: string | null = null
   let lastName: string | null = null
   let role = "worker"
+  let hasMembership = false
 
   try {
     const clerk = await clerkClient()
@@ -31,11 +32,17 @@ export async function ensureUser(userId: string, orgId: string) {
     const membership = memberships.data?.find(
       (m) => m.publicUserData?.userId === userId
     )
-    if (membership?.role === "org:admin") role = "admin"
-    else if (membership?.role === "org:manager") role = "manager"
+    if (membership) {
+      hasMembership = true
+      if (membership.role === "org:admin") role = "admin"
+      else if (membership.role === "org:manager") role = "manager"
+    }
   } catch {
     // Clerk lookup failed; create with minimal data
+    hasMembership = true
   }
+
+  if (!hasMembership) return null
 
   return prisma.user.upsert({
     where: { id: userId },

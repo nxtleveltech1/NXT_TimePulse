@@ -168,6 +168,13 @@ export async function POST(req: Request) {
           })
         }
         const pub = data.public_user_data
+        const existingUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { status: true },
+        })
+        const isRemoved = existingUser && ["offboarded", "archived"].includes(existingUser.status)
+        if (isRemoved) break
+
         await prisma.user.upsert({
           where: { id: userId },
           create: {
@@ -187,7 +194,6 @@ export async function POST(req: Request) {
             email: pub?.identifier ?? undefined,
             firstName: pub?.first_name ?? undefined,
             lastName: pub?.last_name ?? undefined,
-            status: "active",
             lastIdentitySyncAt: new Date(),
             updatedAt: new Date(),
           },

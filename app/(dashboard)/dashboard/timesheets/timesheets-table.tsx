@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import {
   flexRender,
   getCoreRowModel,
@@ -10,10 +11,11 @@ import {
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
+  type RowSelectionState,
   type SortingState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, Pencil, Copy, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
-import { motion } from "motion/react"
+import { ArrowUpDown, Pencil, Copy, Search, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, CheckCheck, XCircle, X, Loader2 } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 import {
   Table,
   TableBody,
@@ -50,10 +52,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { SourceBadge } from "@/components/time-capture/source-badge"
 import { EditEntryDialog } from "@/components/time-capture/edit-entry-dialog"
+import { bulkApproveTimesheets, bulkRejectTimesheets } from "@/lib/actions/bulk"
 
 type TimesheetWithRelations = {
   id: string
@@ -78,15 +82,49 @@ export function TimesheetsTable({
   timesheets: TimesheetWithRelations[]
   isAdmin: boolean
 }) {
+  const router = useRouter()
   const [dialog, setDialog] = useState<{ id: string; action: "approve" | "reject" } | null>(null)
   const [editTarget, setEditTarget] = useState<TimesheetWithRelations | null>(null)
   const [reason, setReason] = useState("")
   const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState("")
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false)
+  const [bulkReason, setBulkReason] = useState("")
+  const [isBulkPending, startBulkTransition] = useTransition()
 
   const columns = useMemo<ColumnDef<TimesheetWithRelations>[]>(() => {
     const base: ColumnDef<TimesheetWithRelations>[] = [
+      ...(isAdmin
+        ? [
+            {
+              id: "select",
+              header: ({ table: t }: { table: ReturnType<typeof useReactTable<TimesheetWithRelations>> }) => (
+                <Checkbox
+                  checked={
+                    t.getIsAllPageRowsSelected() ||
+                    (t.getIsSomePageRowsSelected() && "indeterminate")
+                  }
+                  onCheckedChange={(v) => t.toggleAllPageRowsSelected(!!v)}
+                  aria-label="Select all"
+                />
+              ),
+              cell: ({ row }: { row: { getCanSelect: () => boolean; getIsSelected: () => boolean; toggleSelected: (v: boolean) => void } }) => {
+                if (!row.getCanSelect()) return null
+                return (
+                  <Checkbox
+                    checked={row.getIsSelected()}
+                    onCheckedChange={(v) => row.toggleSelected(!!v)}
+                    aria-label="Select row"
+                  />
+                )
+              },
+              enableSorting: false,
+              enableHiding: false,
+            } satisfies ColumnDef<TimesheetWithRelations>,
+          ]
+        : []),
       { id: "date", accessorKey: "date", header: "Date" },
       {
         id: "worker",
@@ -214,10 +252,13 @@ export function TimesheetsTable({
   const table = useReactTable({
     data: timesheets,
     columns,
-    state: { sorting, columnFilters, globalFilter },
+    state: { sorting, columnFilters, globalFilter, rowSelection },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: (row) => row.original.status === "pending",
+    getRowId: (row) => row.id,
     globalFilterFn: (row, _columnId, filterValue: string) => {
       const search = filterValue.toLowerCase()
       const worker = [row.original.user.firstName, row.original.user.lastName]
@@ -235,6 +276,39 @@ export function TimesheetsTable({
       pagination: { pageSize: 20 },
     },
   })
+
+  const selectedIds = Object.keys(rowSelection)
+  const selectedCount = selectedIds.length
+
+  async function handleBulkApprove() {
+    if (!selectedCount) return
+    startBulkTransition(async () => {
+      try {
+        const result = await bulkApproveTimesheets(selectedIds)
+        toast.success(`Approved ${result.count} timesheet${result.count !== 1 ? "s" : ""}`)
+        setRowSelection({})
+        router.refresh()
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to approve")
+      }
+    })
+  }
+
+  async function handleBulkReject() {
+    if (!selectedCount || !bulkReason.trim()) return
+    startBulkTransition(async () => {
+      try {
+        const result = await bulkRejectTimesheets(selectedIds, bulkReason.trim())
+        toast.success(`Rejected ${result.count} timesheet${result.count !== 1 ? "s" : ""}`)
+        setRowSelection({})
+        setBulkRejectOpen(false)
+        setBulkReason("")
+        router.refresh()
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to reject")
+      }
+    })
+  }
 
   async function submitStatus(id: string, status: string) {
     const adjustmentReason = reason.trim() || "No reason provided"
@@ -530,6 +604,83 @@ export function TimesheetsTable({
           </div>
         </div>
       )}
+
+      {/* Floating bulk action bar */}
+      <AnimatePresence>
+        {isAdmin && selectedCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="sticky bottom-4 z-10 mx-auto mt-4 flex w-fit items-center gap-3 rounded-lg border bg-background px-4 py-2.5 shadow-lg"
+          >
+            <span className="text-sm font-medium">
+              {selectedCount} selected
+            </span>
+            <div className="h-4 w-px bg-border" />
+            <Button
+              size="sm"
+              className="h-8 gap-1.5"
+              disabled={isBulkPending}
+              onClick={handleBulkApprove}
+            >
+              {isBulkPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCheck className="h-3.5 w-3.5" />}
+              Approve All
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-8 gap-1.5"
+              disabled={isBulkPending}
+              onClick={() => setBulkRejectOpen(true)}
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Reject All
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 gap-1"
+              onClick={() => setRowSelection({})}
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk reject reason dialog */}
+      <Dialog open={bulkRejectOpen} onOpenChange={(o) => { setBulkRejectOpen(o); if (!o) setBulkReason("") }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject {selectedCount} timesheet{selectedCount !== 1 ? "s" : ""}</DialogTitle>
+            <DialogDescription>
+              Provide a reason for rejecting the selected entries.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="bulk-reason">Reason</Label>
+            <Textarea
+              id="bulk-reason"
+              placeholder="e.g. Hours not verified against site records"
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkRejectOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={!bulkReason.trim() || isBulkPending}
+              onClick={handleBulkReject}
+            >
+              {isBulkPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reject ({selectedCount})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {reviewDialog}
       {editTarget && (

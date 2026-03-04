@@ -249,23 +249,22 @@ export async function DELETE(
     const hasData = (counts?._count.timesheets ?? 0) > 0 || (counts?._count.allocations ?? 0) > 0
 
     if (!hasData) {
-      // Clean up Clerk: remove membership + delete user
+      const clerk = await clerkClient()
       try {
-        const clerk = await clerkClient()
-        try {
-          await clerk.organizations.deleteOrganizationMembership({
-            organizationId: org,
-            userId: id,
-          })
-        } catch { /* membership may not exist */ }
-        try {
-          await clerk.users.deleteUser(id)
-        } catch { /* user may not exist in Clerk */ }
-      } catch { /* best-effort Clerk cleanup */ }
+        await clerk.organizations.deleteOrganizationMembership({
+          organizationId: org,
+          userId: id,
+        })
+      } catch (e) {
+        console.warn("[users DELETE] Clerk membership removal failed (may not exist):", e)
+      }
+      try {
+        await clerk.users.deleteUser(id)
+      } catch (e) {
+        console.warn("[users DELETE] Clerk user deletion failed (may not exist):", e)
+      }
 
-      // Remove from DB
       await prisma.user.delete({ where: { id } }).catch(() => {
-        // If FK constraints prevent hard delete, soft-delete instead
         return prisma.user.update({
           where: { id },
           data: { status: "archived", offboardedAt: new Date() },

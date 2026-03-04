@@ -14,6 +14,7 @@ import {
   Shield,
   Wallet,
   CheckSquare,
+  Settings,
 } from "lucide-react"
 // Auth layout must be force-dynamic — Clerk's auth() reads per-request headers
 export const dynamic = "force-dynamic"
@@ -36,6 +37,7 @@ import { isAdminOrManager } from "@/lib/auth"
 import { AppBreadcrumbs } from "@/components/breadcrumbs"
 import { NavLink } from "@/components/nav-link"
 import { NotificationBell } from "@/components/notification-bell"
+import { PushRegistration } from "@/components/push-registration"
 
 const mainNavItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -52,6 +54,7 @@ const adminNavItems = [
   { href: "/dashboard/reports", label: "Reports", icon: BarChart3 },
   { href: "/dashboard/financials", label: "Financials", icon: FileText },
   { href: "/dashboard/audit", label: "Audit", icon: ScrollText },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ]
 
 export default async function DashboardLayout({
@@ -138,6 +141,7 @@ export default async function DashboardLayout({
           {children}
         </div>
       </main>
+      <PushRegistration />
     </div>
     </SidebarProvider>
   )

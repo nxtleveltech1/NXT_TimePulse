@@ -89,6 +89,8 @@ model User {
   reviewedChangeRequests AdminChangeRequest[] @relation("ReviewedChangeRequests")
   lifecycleEvents UserLifecycleEvent[] @relation("LifecycleEventUser")
   actedLifecycleEvents UserLifecycleEvent[] @relation("LifecycleActor")
+  notifications    Notification[]
+  pushSubscriptions PushSubscription[]
 
   @@map("users")
 }
@@ -362,6 +364,41 @@ model ApiRateLimitCounter {
 
   @@index([windowStart])
   @@map("api_rate_limit_counters")
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  orgId       String    @map("org_id")
+  type        String
+  title       String
+  description String?
+  level       String    @default("info")
+  href        String?
+  read        Boolean   @default(false)
+  dismissed   Boolean   @default(false)
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, dismissed, createdAt])
+  @@index([orgId, type, createdAt])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@map("push_subscriptions")
 }
 
 model AuditLog {

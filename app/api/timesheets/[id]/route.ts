@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { isAdminOrManager } from "@/lib/auth"
+import {
+  resolveNotifications,
+  getWeekStartDate,
+} from "@/lib/resolve-notifications"
 
 export async function GET(
   _req: Request,
@@ -118,6 +122,18 @@ export async function PATCH(
   if (statusChanged) {
     revalidatePath("/dashboard/timesheets")
     revalidatePath("/dashboard/timesheets/weekly")
+  }
+
+  if (data.clockOut && !timesheet.clockOut) {
+    resolveNotifications(timesheet.userId, "clock_out_reminder").catch(() => {})
+  }
+
+  if (data.status === "approved") {
+    resolveNotifications(
+      timesheet.userId,
+      "timesheet_submit_reminder",
+      getWeekStartDate()
+    ).catch(() => {})
   }
 
   return NextResponse.json(updated)

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { useNotificationStore } from "@/lib/stores/notification-store"
+import { useNotifications } from "@/hooks/use-notifications"
 import { cn } from "@/lib/utils"
 import { formatDistanceToNow } from "date-fns"
 import Link from "next/link"
@@ -22,7 +22,8 @@ const levelStyles: Record<string, string> = {
 }
 
 export function NotificationBell() {
-  const { notifications, unreadCount, markRead, markAllRead, remove } = useNotificationStore()
+  const { notifications, unreadCount, markRead, markAllRead, dismiss, clearAll } =
+    useNotifications()
 
   return (
     <Popover>
@@ -79,7 +80,7 @@ export function NotificationBell() {
                       <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{n.description}</p>
                     )}
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {formatDistanceToNow(n.createdAt, { addSuffix: true })}
+                      {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                     </p>
                   </div>
                   {!n.read && (
@@ -91,7 +92,7 @@ export function NotificationBell() {
                     variant="ghost"
                     size="icon"
                     className="absolute right-1 top-1 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); remove(n.id) }}
+                    onClick={(e) => { e.stopPropagation(); dismiss(n.id) }}
                     aria-label="Dismiss"
                   >
                     ×
@@ -107,7 +108,7 @@ export function NotificationBell() {
               variant="ghost"
               size="sm"
               className="w-full text-xs text-muted-foreground"
-              onClick={() => useNotificationStore.getState().clear()}
+              onClick={clearAll}
             >
               Clear all
             </Button>

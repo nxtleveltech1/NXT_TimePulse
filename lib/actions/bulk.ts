@@ -2,6 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server"
 import { revalidatePath } from "next/cache"
+import { addDays, format } from "date-fns"
 import { prisma } from "@/lib/prisma"
 import { requireCapability } from "@/lib/auth"
 
@@ -121,4 +122,105 @@ export async function exportTimesheetsCsv(filters: {
   })
 
   return header + rows.join("\n")
+}
+
+export async function bulkApproveWeek(targetUserId: string, weekStartDate: string) {
+  const access = await requireCapability("users.write")
+  if (!access) throw new Error("Forbidden")
+
+  const { userId } = await auth()
+  if (!userId) throw new Error("Unauthorized")
+
+  if (!targetUserId) throw new Error("Worker is required")
+  if (!weekStartDate) throw new Error("Week start date is required")
+
+  const weekStart = new Date(`${weekStartDate}T00:00:00`)
+  const weekEnd = format(addDays(weekStart, 6), "yyyy-MM-dd")
+
+  const updated = await prisma.timesheet.updateMany({
+    where: {
+      userId: targetUserId,
+      project: { orgId: access.orgId },
+      status: "pending",
+      date: { gte: weekStartDate, lte: weekEnd },
+    },
+    data: {
+      status: "approved",
+      approvedById: userId,
+      approvedAt: new Date(),
+      updatedAt: new Date(),
+    },
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: "timesheets.week_approved",
+      entityType: "timesheet",
+      entityId: targetUserId,
+      details: `Bulk approved ${updated.count} timesheets for week ${weekStartDate} – ${weekEnd}`,
+    },
+  })
+
+  revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
+  return { count: updated.count }
+}
+
+export async function bulkRejectDay(targetUserId: string, date: string, reason: string) {
+  const access = await requireCapability("users.write")
+  if (!access) throw new Error("Forbidden")
+
+  const { userId } = await auth()
+  if (!userId) throw new Error("Unauthorized")
+
+  if (!targetUserId) throw new Error("Worker is required")
+  if (!date) throw new Error("Date is required")
+  if (!reason.trim()) throw new Error("Reason is required for rejection")
+
+  const updated = await prisma.timesheet.updateMany({
+    where: {
+      userId: targetUserId,
+      project: { orgId: access.orgId },
+      status: "pending",
+      date,
+    },
+    data: {
+      status: "rejected",
+      notes: reason.trim(),
+      updatedAt: new Date(),
+    },
+  })
+
+  await prisma.auditLog.create({
+    data: {
+      userId,
+      action: "timesheets.day_rejected",
+      entityType: "timesheet",
+      entityId: targetUserId,
+      details: `Rejected ${updated.count} timesheets for ${date}: ${reason.trim()}`,
+    },
+  })
+
+  revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
+  return { count: updated.count }
+}
+
+export async function getPendingTimesheetCount(
+  targetUserId: string,
+  dateFrom: string,
+  dateTo: string
+) {
+  const access = await requireCapability("users.write")
+  if (!access) return 0
+
+  return prisma.timesheet.count({
+    where: {
+      userId: targetUserId,
+      project: { orgId: access.orgId },
+      status: "pending",
+      date: { gte: dateFrom, lte: dateTo },
+    },
+  })
 }

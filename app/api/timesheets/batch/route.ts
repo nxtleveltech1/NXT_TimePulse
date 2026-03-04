@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { batchEntrySchema } from "@/lib/validations/timesheet"
+import { resolveNotifications } from "@/lib/resolve-notifications"
 
 export async function POST(req: Request) {
   const { userId } = await auth()
@@ -76,6 +77,8 @@ export async function POST(req: Request) {
       details: `Batch created ${created.length} timesheet entries`,
     },
   })
+
+  resolveNotifications(userId, "clock_in_reminder").catch(() => {})
 
   return NextResponse.json({ created: created.length })
 }

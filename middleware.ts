@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",
   "/api/health",
   "/api/kiosk(.*)",
+  "/api/cron(.*)",
   "/kiosk(.*)",
   "/request-access",
 ])
@@ -26,6 +27,8 @@ const isAdminRoute = createRouteMatcher([
   "/dashboard/approvals/(.*)",
   "/dashboard/audit",
   "/dashboard/audit/(.*)",
+  "/dashboard/settings",
+  "/dashboard/settings/(.*)",
 ])
 
 const isSuperAdminRoute = createRouteMatcher([

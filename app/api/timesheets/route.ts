@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAdminOrManager } from "@/lib/auth"
 import { ensureUser } from "@/lib/ensure-user"
+import { resolveNotifications } from "@/lib/resolve-notifications"
 
 export async function GET(req: Request) {
   const { userId, orgId, orgRole } = await auth()
@@ -104,6 +105,9 @@ export async function POST(req: Request) {
         details: `Timesheet created for project ${projectId}`,
       },
     })
+
+    resolveNotifications(userId, "clock_in_reminder").catch(() => {})
+
     return NextResponse.json(timesheet)
   } catch (err) {
     console.error("[timesheets POST]", err)
