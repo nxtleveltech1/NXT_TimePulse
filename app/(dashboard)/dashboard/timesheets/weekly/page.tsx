@@ -29,6 +29,7 @@ export default async function WeeklyTimesheetPage() {
         date: { gte: rangeStart, lte: rangeEnd },
       },
       select: {
+        id: true,
         date: true,
         projectId: true,
         durationMinutes: true,

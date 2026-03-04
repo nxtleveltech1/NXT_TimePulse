@@ -9,7 +9,7 @@ import { ManualEntryDialog } from "@/components/time-capture/manual-entry-dialog
 type Allocation = {
   id: string
   projectId: string
-  project: { id: string; name: string }
+  project: { id: string; name: string; isBillable: boolean }
 }
 
 interface WorkerQuickActionsProps {
