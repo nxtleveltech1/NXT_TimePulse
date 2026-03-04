@@ -40,6 +40,7 @@ export async function bulkApproveTimesheets(timesheetIds: string[]) {
   })
 
   revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
   return { count: updated.count }
 }
 
@@ -66,6 +67,7 @@ export async function bulkRejectTimesheets(timesheetIds: string[], reason?: stri
   })
 
   revalidatePath("/dashboard/timesheets")
+  revalidatePath("/dashboard/timesheets/weekly")
   return { count: updated.count }
 }
 

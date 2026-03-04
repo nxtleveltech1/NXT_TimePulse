@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 import { isAdminOrManager } from "@/lib/auth"
 
 export async function GET(
@@ -113,5 +114,11 @@ export async function PATCH(
     where: { id },
     data: data as Parameters<typeof prisma.timesheet.update>[0]["data"],
   })
+
+  if (statusChanged) {
+    revalidatePath("/dashboard/timesheets")
+    revalidatePath("/dashboard/timesheets/weekly")
+  }
+
   return NextResponse.json(updated)
 }
