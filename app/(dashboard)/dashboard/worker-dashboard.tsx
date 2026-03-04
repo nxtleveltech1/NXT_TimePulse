@@ -53,7 +53,7 @@ export async function WorkerDashboard() {
     }),
     prisma.projectAllocation.findMany({
       where: { userId, isActive: true },
-      include: { project: { select: { id: true, name: true } } },
+      include: { project: { select: { id: true, name: true, isBillable: true } } },
     }),
     prisma.timesheet.findMany({
       where: { userId, date: todayStr },
