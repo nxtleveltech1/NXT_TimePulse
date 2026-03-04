@@ -49,41 +49,51 @@ export async function POST(
     )
   }
 
+  if (user.status === "offboarded" || user.status === "archived") {
+    return NextResponse.json({ error: "User is already offboarded" }, { status: 409 })
+  }
+
   const effectiveDate = parsed.data.effectiveDate ?? new Date().toISOString().slice(0, 10)
 
-  const requestRow = await createChangeRequest({
-    orgId: auth.orgId,
-    requestedById: auth.userId,
-    changeType: "user_access_change",
-    targetType: "user",
-    targetId: id,
-    payload: {
-      operation: "offboard",
-      userId: id,
-      data: {
-        reason: parsed.data.reason,
-        effectiveDate,
+  try {
+    const requestRow = await createChangeRequest({
+      orgId: auth.orgId,
+      requestedById: auth.userId,
+      changeType: "user_access_change",
+      targetType: "user",
+      targetId: id,
+      payload: {
+        operation: "offboard",
+        userId: id,
+        data: {
+          reason: parsed.data.reason,
+          effectiveDate,
+        },
       },
-    },
-    criticalReason: "Offboarding requires maker-checker approval",
-  })
+      criticalReason: "Offboarding requires maker-checker approval",
+    })
 
-  await prisma.auditLog.create({
-    data: {
-      userId: auth.userId,
-      action: "offboard.requested",
-      entityType: "user",
-      entityId: id,
-      details: parsed.data.reason,
-    },
-  }).catch(() => {})
+    await prisma.auditLog.create({
+      data: {
+        userId: auth.userId,
+        action: "offboard.requested",
+        entityType: "user",
+        entityId: id,
+        details: parsed.data.reason,
+      },
+    }).catch(() => {})
 
-  return NextResponse.json(
-    {
-      status: "pending_approval",
-      changeRequestId: requestRow.id,
-      message: "Offboarding request submitted for approval",
-    },
-    { status: 202 }
-  )
+    return NextResponse.json(
+      {
+        status: "pending_approval",
+        changeRequestId: requestRow.id,
+        message: "Offboarding request submitted for approval",
+      },
+      { status: 202 }
+    )
+  } catch (err) {
+    console.error("[users offboard] Failed to create offboard request:", err)
+    const message = err instanceof Error ? err.message : "Failed to create offboard request"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

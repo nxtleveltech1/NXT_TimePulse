@@ -23,7 +23,17 @@ function previousDay(date: string): string {
   return dateOnly(d)
 }
 
+export async function ensureOrganization(orgId: string, name?: string) {
+  await prisma.organization.upsert({
+    where: { id: orgId },
+    create: { id: orgId, name: name ?? "Organization" },
+    update: {},
+  })
+}
+
 export async function createChangeRequest(input: CreateChangeRequestInput) {
+  await ensureOrganization(input.orgId)
+
   return prisma.adminChangeRequest.create({
     data: {
       orgId: input.orgId,

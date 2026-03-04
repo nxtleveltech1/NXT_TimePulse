@@ -77,30 +77,36 @@ export async function PATCH(
   const statusDowngrade =
     status !== undefined && ["suspended", "offboarded", "archived"].includes(status)
   if (roleDowngrade || statusDowngrade) {
-    const requestRow = await createChangeRequest({
-      orgId: org,
-      requestedById: userId,
-      changeType: "user_access_change",
-      targetType: "user",
-      targetId: id,
-      payload: {
-        operation: "user_update",
-        userId: id,
-        data: {
-          ...(role !== undefined ? { role } : {}),
-          ...(status !== undefined ? { status } : {}),
+    try {
+      const requestRow = await createChangeRequest({
+        orgId: org,
+        requestedById: userId,
+        changeType: "user_access_change",
+        targetType: "user",
+        targetId: id,
+        payload: {
+          operation: "user_update",
+          userId: id,
+          data: {
+            ...(role !== undefined ? { role } : {}),
+            ...(status !== undefined ? { status } : {}),
+          },
         },
-      },
-      criticalReason: "User access downgrade requires maker-checker approval",
-    })
-    return NextResponse.json(
-      {
-        status: "pending_approval",
-        changeRequestId: requestRow.id,
-        message: "User access change submitted for approval",
-      },
-      { status: 202 }
-    )
+        criticalReason: "User access downgrade requires maker-checker approval",
+      })
+      return NextResponse.json(
+        {
+          status: "pending_approval",
+          changeRequestId: requestRow.id,
+          message: "User access change submitted for approval",
+        },
+        { status: 202 }
+      )
+    } catch (err) {
+      console.error("[users PATCH] Failed to create change request:", err)
+      const message = err instanceof Error ? err.message : "Failed to submit change request"
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
   }
 
   const previous = { role: existing.role, status: existing.status }
@@ -193,46 +199,59 @@ export async function DELETE(
     return NextResponse.json({ error: "User not found" }, { status: 404 })
   }
 
-  const requestRow = await createChangeRequest({
-    orgId: org,
-    requestedById: userId,
-    changeType: "user_access_change",
-    targetType: "user",
-    targetId: id,
-    payload: {
-      operation: "offboard",
-      userId: id,
-      data: {
-        reason: `Remove from org requested by ${userId}`,
-        effectiveDate: new Date().toISOString().slice(0, 10),
+  if (existing.status === "offboarded" || existing.status === "archived") {
+    return NextResponse.json(
+      { error: "User is already offboarded" },
+      { status: 409 }
+    )
+  }
+
+  try {
+    const requestRow = await createChangeRequest({
+      orgId: org,
+      requestedById: userId,
+      changeType: "user_access_change",
+      targetType: "user",
+      targetId: id,
+      payload: {
+        operation: "offboard",
+        userId: id,
+        data: {
+          reason: `Remove from org requested by ${userId}`,
+          effectiveDate: new Date().toISOString().slice(0, 10),
+        },
       },
-    },
-    criticalReason: "User offboarding requires maker-checker approval",
-  })
+      criticalReason: "User offboarding requires maker-checker approval",
+    })
 
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      action: "user.offboard_requested",
-      entityType: "user",
-      entityId: id,
-      details: `Offboarding requested: ${existing.email ?? id}`,
-    },
-  })
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: "user.offboard_requested",
+        entityType: "user",
+        entityId: id,
+        details: `Offboarding requested: ${existing.email ?? id}`,
+      },
+    })
 
-  await notifyOffboardRequest({
-    orgId: org,
-    targetUserId: id,
-    targetUserEmail: existing.email,
-    requestedById: userId,
-  }).catch(() => {})
+    await notifyOffboardRequest({
+      orgId: org,
+      targetUserId: id,
+      targetUserEmail: existing.email,
+      requestedById: userId,
+    }).catch(() => {})
 
-  return NextResponse.json(
-    {
-      success: true,
-      status: "pending_approval",
-      changeRequestId: requestRow.id,
-    },
-    { status: 202 }
-  )
+    return NextResponse.json(
+      {
+        success: true,
+        status: "pending_approval",
+        changeRequestId: requestRow.id,
+      },
+      { status: 202 }
+    )
+  } catch (err) {
+    console.error("[users DELETE] Failed to create offboard request:", err)
+    const message = err instanceof Error ? err.message : "Failed to create offboard request"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

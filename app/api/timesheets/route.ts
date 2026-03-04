@@ -67,33 +67,41 @@ export async function POST(req: Request) {
     : 0
   const durationMinutes = Math.max(0, rawDuration - breakMinutesVal)
 
-  const timesheet = await prisma.timesheet.create({
-    data: {
-      userId,
-      projectId,
-      geozoneId,
-      date: dateStr,
-      clockIn,
-      clockOut,
-      durationMinutes,
-      source: ["manual", "timer", "kiosk", "geofence"].includes(b.source as string)
-        ? (b.source as string)
-        : "manual",
-      status: "pending",
-      notes: typeof b.notes === "string" ? b.notes : "",
-      breakMinutes: typeof b.breakMinutes === "number" ? b.breakMinutes : 0,
-      overtimeMinutes: typeof b.overtimeMinutes === "number" ? b.overtimeMinutes : 0,
-      isBillable: typeof b.isBillable === "boolean" ? b.isBillable : true,
-    },
-  })
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      action: "timesheet.created",
-      entityType: "timesheet",
-      entityId: timesheet.id,
-      details: `Timesheet created for project ${projectId}`,
-    },
-  })
-  return NextResponse.json(timesheet)
+  try {
+    const timesheet = await prisma.timesheet.create({
+      data: {
+        userId,
+        projectId,
+        geozoneId,
+        date: dateStr,
+        clockIn,
+        clockOut,
+        durationMinutes,
+        source: ["manual", "timer", "kiosk", "geofence"].includes(b.source as string)
+          ? (b.source as string)
+          : "manual",
+        status: "pending",
+        notes: typeof b.notes === "string" ? b.notes : "",
+        breakMinutes: typeof b.breakMinutes === "number" ? b.breakMinutes : 0,
+        overtimeMinutes: typeof b.overtimeMinutes === "number" ? b.overtimeMinutes : 0,
+        isBillable: typeof b.isBillable === "boolean" ? b.isBillable : true,
+      },
+    })
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: "timesheet.created",
+        entityType: "timesheet",
+        entityId: timesheet.id,
+        details: `Timesheet created for project ${projectId}`,
+      },
+    })
+    return NextResponse.json(timesheet)
+  } catch (err) {
+    console.error("[timesheets POST]", err)
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to create timesheet" },
+      { status: 500 }
+    )
+  }
 }

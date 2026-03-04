@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma"
 import { prisma } from "@/lib/prisma"
+import { ensureOrganization } from "@/lib/change-requests"
 
 type LifecycleEventInput = {
   orgId: string
@@ -10,6 +11,8 @@ type LifecycleEventInput = {
 }
 
 export async function logLifecycleEvent(input: LifecycleEventInput) {
+  await ensureOrganization(input.orgId)
+
   await prisma.userLifecycleEvent.create({
     data: {
       orgId: input.orgId,

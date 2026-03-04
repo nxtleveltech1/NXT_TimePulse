@@ -132,10 +132,23 @@ export async function POST(req: Request) {
         break
       }
 
+      case "organization.created":
+      case "organization.updated": {
+        const data = evt.data as { id?: string; name?: string }
+        if (data.id) {
+          await prisma.organization.upsert({
+            where: { id: data.id },
+            create: { id: data.id, name: data.name ?? "Organization" },
+            update: { name: data.name ?? undefined },
+          })
+        }
+        break
+      }
+
       case "organizationMembership.created":
       case "organizationMembership.updated": {
         const data = evt.data as {
-          organization?: { id: string }
+          organization?: { id: string; name?: string }
           public_user_data?: {
             user_id?: string
             identifier?: string
@@ -147,6 +160,13 @@ export async function POST(req: Request) {
         const userId = data.public_user_data?.user_id ?? (evt.data as { user_id?: string }).user_id
         if (!userId) break
         const orgId = data.organization?.id ?? "org_default"
+        if (data.organization?.id) {
+          await prisma.organization.upsert({
+            where: { id: data.organization.id },
+            create: { id: data.organization.id, name: data.organization.name ?? "Organization" },
+            update: {},
+          })
+        }
         const pub = data.public_user_data
         await prisma.user.upsert({
           where: { id: userId },
