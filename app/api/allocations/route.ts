@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { auth as clerkAuth } from "@clerk/nextjs/server"
 import { prisma } from "@/lib/prisma"
 import { hasCapability, requireCapability } from "@/lib/auth"
 import { serializeForClient } from "@/lib/serialize"
@@ -19,8 +20,20 @@ function todayDate() {
 }
 
 export async function GET(req: Request) {
-  const auth = await requireCapability("assignments.read")
-  if (!auth) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Try capability-based access first (admin/manager).
+  // Fall back to self-read: any authenticated user can read their own allocations.
+  let auth = await requireCapability("assignments.read")
+  let selfOnly = false
+
+  if (!auth) {
+    const session = await clerkAuth()
+    if (!session.userId || !session.orgId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    auth = { userId: session.userId, orgId: session.orgId, orgRole: session.orgRole as string }
+    selfOnly = true
+  }
+
   const canReadComp = hasCapability(auth.orgRole, "compensation.read")
 
   const { searchParams } = new URL(req.url)
@@ -29,7 +42,11 @@ export async function GET(req: Request) {
 
   const where: Record<string, unknown> = { orgId: auth.orgId, status: { in: ["active", "paused"] } }
   if (projectId) where.projectId = projectId
-  if (userIdParam) where.userId = userIdParam
+  if (selfOnly) {
+    where.userId = auth.userId
+  } else if (userIdParam) {
+    where.userId = userIdParam
+  }
 
   const assignments = await prisma.projectAssignment.findMany({
     where,
