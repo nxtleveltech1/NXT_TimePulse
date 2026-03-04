@@ -208,7 +208,7 @@ export function WorkerClock({
               No project allocations. Contact your manager.
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {allocations.map((a) => (
                 <motion.div
                   key={a.id}
@@ -220,15 +220,15 @@ export function WorkerClock({
                     variant="outline"
                     disabled={loading}
                     onClick={() => manualClockIn(a.projectId, null)}
-                    className="w-full min-h-[52px] justify-start gap-3 px-4 text-sm font-semibold hover:border-primary/40 hover:bg-primary/5"
+                    className="w-full min-h-[72px] justify-start gap-4 px-5 py-4 text-base font-semibold hover:border-primary/50 hover:bg-primary/10"
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <MapPin className="h-[18px] w-[18px] text-primary" />
                     </span>
                     <span className="flex items-center gap-2">
                       {a.project.name}
                       {!a.project.isBillable && (
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                           Non-billable
                         </span>
                       )}
