@@ -9,6 +9,7 @@ import { WorkerWeekSummary } from "./worker-week-summary"
 import { WorkerRecentEntries } from "./worker-recent-entries"
 import { WorkerUpcomingLeave } from "./worker-upcoming-leave"
 import { serializeForClient } from "@/lib/serialize"
+import { cn } from "@/lib/utils"
 
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -118,27 +119,31 @@ export async function WorkerDashboard() {
   }))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
             {getGreeting()}, {firstName}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {format(today, "EEEE, MMMM d, yyyy")}
           </p>
         </div>
         <Badge
           variant="outline"
-          className={
+          className={cn(
+            "mt-1 shrink-0 gap-1.5 px-3 py-1 text-sm",
             isClockedIn
               ? "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400"
               : "border-muted text-muted-foreground"
-          }
+          )}
         >
           <span
-            className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${isClockedIn ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`}
+            className={cn(
+              "inline-block h-2 w-2 rounded-full",
+              isClockedIn ? "bg-green-500 animate-pulse" : "bg-muted-foreground/50"
+            )}
           />
           {isClockedIn ? "Clocked In" : "Off Clock"}
         </Badge>
@@ -159,7 +164,12 @@ export async function WorkerDashboard() {
       />
 
       {/* Quick Actions */}
-      <WorkerQuickActions allocations={serializeForClient(allocations)} />
+      <div>
+        <p className="mb-3 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          Quick Actions
+        </p>
+        <WorkerQuickActions allocations={serializeForClient(allocations)} />
+      </div>
 
       {/* Today + Week summary — side by side on wider screens */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

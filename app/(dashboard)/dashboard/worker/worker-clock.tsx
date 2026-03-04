@@ -1,14 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Clock, MapPin, RotateCcw } from "lucide-react"
+import { MapPin, RotateCcw, LogOut, Timer } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { LiveTimer } from "@/components/time-capture/live-timer"
 import { BreakControls } from "@/components/time-capture/break-controls"
+import { cn } from "@/lib/utils"
 
 type OpenTimesheet = {
   id: string
@@ -60,7 +61,10 @@ export function WorkerClock({
       })
       if (!res.ok) throw new Error("Failed")
       const ts = await res.json()
-      setActiveTimesheet({ ...ts, project: allocations.find(a => a.projectId === projectId)?.project ?? { name: "Project" } })
+      setActiveTimesheet({
+        ...ts,
+        project: allocations.find((a) => a.projectId === projectId)?.project ?? { name: "Project" },
+      })
       setClockedIn(true)
       toast.success("Clocked in")
     } catch {
@@ -94,94 +98,150 @@ export function WorkerClock({
     }
   }
 
+  const clockInIso =
+    activeTimesheet
+      ? typeof activeTimesheet.clockIn === "string"
+        ? activeTimesheet.clockIn
+        : activeTimesheet.clockIn.toISOString()
+      : null
+
   return (
-    <Card>
-      <CardHeader className="p-4 md:p-6">
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Clock status
-        </CardTitle>
-        <CardDescription>
-          {clockedIn && activeTimesheet
-            ? `Clocked in — ${activeTimesheet.project.name}`
-            : "Not clocked in"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 p-4 md:p-6 pt-0">
-        {clockedIn && activeTimesheet ? (
-          <div className="space-y-4">
-            <div className="flex flex-col items-center gap-3 rounded-xl border bg-muted/30 py-6">
-              <LiveTimer clockInIso={typeof activeTimesheet.clockIn === "string" ? activeTimesheet.clockIn : activeTimesheet.clockIn.toISOString()} />
-              <p className="text-xs text-muted-foreground">
-                Since {format(new Date(typeof activeTimesheet.clockIn === "string" ? activeTimesheet.clockIn : activeTimesheet.clockIn.toISOString()), "HH:mm")}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className={cn(
+        "rounded-2xl border p-6 md:p-8 transition-all duration-500",
+        clockedIn
+          ? "border-green-500/30 bg-green-500/5 shadow-[0_0_40px_-12px] shadow-green-500/20 dark:shadow-green-500/10"
+          : "border-border bg-card"
+      )}
+    >
+      {clockedIn && activeTimesheet && clockInIso ? (
+        /* ── CLOCKED IN STATE ── */
+        <div className="flex flex-col items-center gap-6">
+          {/* Status pill */}
+          <div className="flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-1.5">
+            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm font-medium text-green-600 dark:text-green-400">Live Session</span>
+          </div>
+
+          {/* Project name */}
+          <div className="text-center">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-1">
+              Active project
+            </p>
+            <h2 className="text-xl font-bold">{activeTimesheet.project.name}</h2>
+            {activeTimesheet.geozone && (
+              <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground mt-1">
+                <MapPin className="h-3 w-3" />
+                {activeTimesheet.geozone.name}
               </p>
-              {activeTimesheet.geozone && (
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {activeTimesheet.geozone.name}
-                </p>
-              )}
-            </div>
+            )}
+          </div>
+
+          {/* Hero timer */}
+          <div className="flex flex-col items-center gap-2">
+            <LiveTimer clockInIso={clockInIso} size="hero" />
+            <p className="text-xs text-muted-foreground">
+              Started at {format(new Date(clockInIso), "HH:mm")}
+            </p>
+          </div>
+
+          {/* Break controls */}
+          <div className="w-full max-w-sm">
             <BreakControls
               timesheetId={activeTimesheet.id}
               initialBreakMinutes={activeTimesheet.breakMinutes}
             />
-            <Button
-              onClick={manualClockOut}
-              disabled={loading}
-              variant="destructive"
-              size="lg"
-              className="w-full min-h-[44px]"
-            >
-              {loading ? "Clocking out..." : "Clock out"}
-            </Button>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {lastTimesheet && (
-              <Button
-                variant="secondary"
-                size="lg"
-                className="w-full min-h-[44px] gap-2"
-                disabled={loading}
-                onClick={() => manualClockIn(lastTimesheet.projectId, null)}
-              >
-                <RotateCcw className="h-4 w-4" />
-                Resume: {lastTimesheet.project.name}
-              </Button>
-            )}
-            <p className="text-sm text-muted-foreground">
-              Clock in with a project:
-            </p>
-            <div className="flex items-center gap-2">
+
+          {/* Clock out */}
+          <Button
+            onClick={manualClockOut}
+            disabled={loading}
+            variant="destructive"
+            size="lg"
+            className="w-full max-w-sm min-h-[56px] gap-2 text-base font-semibold"
+          >
+            <LogOut className="h-5 w-5" />
+            {loading ? "Clocking out…" : "Clock Out"}
+          </Button>
+        </div>
+      ) : (
+        /* ── CLOCKED OUT STATE ── */
+        <div className="flex flex-col gap-6">
+          {/* Header row */}
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+              <Timer className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold">Ready to clock in?</h2>
+              <p className="text-sm text-muted-foreground">Select a project to start your session</p>
+            </div>
+          </div>
+
+          {/* Resume last project */}
+          {lastTimesheet && (
+            <Button
+              variant="secondary"
+              size="lg"
+              className="w-full min-h-[56px] gap-2 text-base font-semibold justify-start px-5"
+              disabled={loading}
+              onClick={() => manualClockIn(lastTimesheet.projectId, null)}
+            >
+              <RotateCcw className="h-5 w-5 shrink-0" />
+              <span>
+                Resume <span className="font-bold">{lastTimesheet.project.name}</span>
+              </span>
+            </Button>
+          )}
+
+          {/* Billable toggle + project label */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">Clock in with a project</p>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
               <Checkbox
                 id="billable"
                 checked={isBillable}
                 onCheckedChange={(c) => setIsBillable(!!c)}
               />
-              <label htmlFor="billable" className="text-sm cursor-pointer">Billable</label>
-            </div>
-            {allocations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No project allocations. Contact your manager.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {allocations.map((a) => (
+              <span className="text-sm">Billable</span>
+            </label>
+          </div>
+
+          {/* Project buttons */}
+          {allocations.length === 0 ? (
+            <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-4 text-center">
+              No project allocations. Contact your manager.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {allocations.map((a) => (
+                <motion.div
+                  key={a.id}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.15 }}
+                >
                   <Button
-                    key={a.id}
                     variant="outline"
-                    size="touch"
                     disabled={loading}
                     onClick={() => manualClockIn(a.projectId, null)}
+                    className="w-full min-h-[52px] justify-start gap-3 px-4 text-sm font-semibold hover:border-primary/40 hover:bg-primary/5"
                   >
-                    <MapPin className="mr-1 h-3 w-3" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                      <MapPin className="h-3.5 w-3.5 text-primary" />
+                    </span>
                     {a.project.name}
                   </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
   )
 }

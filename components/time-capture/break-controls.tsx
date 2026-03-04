@@ -81,39 +81,42 @@ export function BreakControls({ timesheetId, initialBreakMinutes = 0 }: BreakCon
   const currentSec = Math.floor((currentBreakMs % 60000) / 1000)
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="w-full">
       {onBreak ? (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-sm text-amber-500 font-mono tabular-nums">
-            <Coffee className="h-4 w-4 animate-pulse" />
-            <span>
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+            <Coffee className="h-4 w-4 animate-pulse shrink-0" />
+            <span className="text-sm font-semibold font-mono tabular-nums">
               {pad(Math.floor(currentBreakMs / 60000))}:{pad(currentSec)}
             </span>
+            <span className="text-xs text-amber-500/70">on break</span>
           </div>
           <Button
-            size="sm"
+            size="default"
             variant="outline"
             onClick={endBreak}
             disabled={loading}
-            className="gap-1.5 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+            className="gap-1.5 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 hover:border-amber-500/60"
           >
-            <Play className="h-3.5 w-3.5" />
+            <Play className="h-4 w-4" />
             End Break
           </Button>
         </div>
       ) : (
         <Button
-          size="sm"
+          size="default"
           variant="outline"
           onClick={startBreak}
           disabled={loading}
           className={cn(
-            "gap-1.5",
-            totalDisplayMin > 0 && "text-muted-foreground"
+            "w-full gap-2 border-dashed",
+            totalDisplayMin > 0
+              ? "text-muted-foreground border-muted-foreground/30"
+              : "border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/50"
           )}
         >
-          <Coffee className="h-3.5 w-3.5" />
-          {totalDisplayMin > 0 ? `Break (${totalDisplayMin}m)` : "Start Break"}
+          <Coffee className="h-4 w-4" />
+          {totalDisplayMin > 0 ? `Break taken: ${totalDisplayMin}m` : "Start Break"}
         </Button>
       )}
     </div>
