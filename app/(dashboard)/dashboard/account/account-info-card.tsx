@@ -8,22 +8,23 @@ import {
   Building2,
   DollarSign,
 } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-interface InfoRowProps {
+interface InfoItemProps {
   icon: React.ReactNode
   label: string
   value: string
 }
 
-function InfoRow({ icon, label, value }: InfoRowProps) {
+function InfoItem({ icon, label, value }: InfoItemProps) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+    <div className="flex items-center gap-3">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
         {icon}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-sm font-semibold truncate">{value}</p>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium truncate">{value}</p>
       </div>
     </div>
   )
@@ -55,27 +56,27 @@ export function AccountInfoCard({ dbUser }: AccountInfoCardProps) {
       : "—"
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-          Contact
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <InfoRow icon={<Mail className="size-4 text-muted-foreground" />} label="Email" value={email} />
-          <InfoRow icon={<Phone className="size-4 text-muted-foreground" />} label="Phone" value={phone} />
-        </div>
-      </div>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader className="p-4 pb-2 md:p-6 md:pb-3">
+          <CardTitle className="text-sm font-medium">Contact</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 p-4 pt-0 md:p-6 md:pt-0">
+          <InfoItem icon={<Mail className="size-4 text-muted-foreground" />} label="Email" value={email} />
+          <InfoItem icon={<Phone className="size-4 text-muted-foreground" />} label="Phone" value={phone} />
+        </CardContent>
+      </Card>
 
-      <div>
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-          Employment
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <InfoRow icon={<Hash className="size-4 text-muted-foreground" />} label="Employee ID" value={employeeId} />
-          <InfoRow icon={<Building2 className="size-4 text-muted-foreground" />} label="Type" value={empType} />
-          <InfoRow icon={<DollarSign className="size-4 text-muted-foreground" />} label="Base Rate" value={baseRate} />
-        </div>
-      </div>
+      <Card>
+        <CardHeader className="p-4 pb-2 md:p-6 md:pb-3">
+          <CardTitle className="text-sm font-medium">Employment</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 p-4 pt-0 md:p-6 md:pt-0">
+          <InfoItem icon={<Hash className="size-4 text-muted-foreground" />} label="Employee ID" value={employeeId} />
+          <InfoItem icon={<Building2 className="size-4 text-muted-foreground" />} label="Type" value={empType} />
+          <InfoItem icon={<DollarSign className="size-4 text-muted-foreground" />} label="Base Rate" value={baseRate} />
+        </CardContent>
+      </Card>
     </div>
   )
 }

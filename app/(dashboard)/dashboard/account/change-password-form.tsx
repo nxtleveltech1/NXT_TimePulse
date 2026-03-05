@@ -2,9 +2,11 @@
 
 import { useState, useCallback } from "react"
 import { useUser } from "@clerk/nextjs"
-import { Lock, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 
 export function ChangePasswordForm() {
   const { user, isLoaded } = useUser()
@@ -54,46 +56,45 @@ export function ChangePasswordForm() {
     [isLoaded, user, currentPassword, newPassword, confirmPassword]
   )
 
+  const inputType = showPasswords ? "text" : "password"
+
   return (
-    <form onSubmit={handleSubmit} className="max-w-xl space-y-8">
-      <div>
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-          Change Password
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-muted-foreground">
-              Current Password
-            </label>
-            <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-              <Lock className="size-4 shrink-0 text-muted-foreground" />
+    <Card className="max-w-xl">
+      <CardHeader className="p-4 pb-2 md:p-6 md:pb-3">
+        <CardTitle className="text-sm font-medium">Change Password</CardTitle>
+        <CardDescription>Update your password to keep your account secure.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="current-pw">Current Password</Label>
+            <div className="relative">
               <input
-                type={showPasswords ? "text" : "password"}
+                id="current-pw"
+                type={inputType}
                 autoComplete="current-password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm"
               />
             </div>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-muted-foreground">
-              New Password
-            </label>
-            <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-              <Lock className="size-4 shrink-0 text-muted-foreground" />
+          <div className="space-y-2">
+            <Label htmlFor="new-pw">New Password</Label>
+            <div className="relative">
               <input
-                type={showPasswords ? "text" : "password"}
+                id="new-pw"
+                type={inputType}
                 autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 pr-9 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm"
               />
               <button
                 type="button"
                 onClick={() => setShowPasswords(!showPasswords)}
-                className="shrink-0 text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 tabIndex={-1}
               >
                 {showPasswords ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -101,32 +102,28 @@ export function ChangePasswordForm() {
             </div>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-muted-foreground">
-              Confirm New Password
-            </label>
-            <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-              <Lock className="size-4 shrink-0 text-muted-foreground" />
-              <input
-                type={showPasswords ? "text" : "password"}
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-pw">Confirm New Password</Label>
+            <input
+              id="confirm-pw"
+              type={inputType}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm"
+            />
           </div>
-        </div>
-      </div>
 
-      <Button
-        type="submit"
-        disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-        size="lg"
-        className="min-w-[160px]"
-      >
-        {saving ? <Loader2 className="size-4 animate-spin" /> : "Update Password"}
-      </Button>
-    </form>
+          <div className="flex justify-end pt-2">
+            <Button
+              type="submit"
+              disabled={saving || !currentPassword || !newPassword || !confirmPassword}
+            >
+              {saving ? <Loader2 className="size-4 animate-spin" /> : "Update Password"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
