@@ -1,5 +1,4 @@
 import { auth } from "@clerk/nextjs/server"
-import { UserButton } from "@clerk/nextjs"
 import Link from "next/link"
 import {
   LayoutDashboard,
@@ -38,6 +37,7 @@ import { AppBreadcrumbs } from "@/components/breadcrumbs"
 import { NavLink } from "@/components/nav-link"
 import { NotificationBell } from "@/components/notification-bell"
 import { PushRegistration } from "@/components/push-registration"
+import { UserMenu } from "@/components/user-menu"
 
 const mainNavItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -131,9 +131,7 @@ export default async function DashboardLayout({
           <div className="flex shrink-0 items-center gap-1">
             <NotificationBell />
             <ModeToggle />
-            <div className="flex min-h-[44px] min-w-[44px] items-center justify-center">
-              <UserButton afterSignOutUrl="/" />
-            </div>
+            <UserMenu />
           </div>
         </header>
         <div className="p-4 md:p-6">

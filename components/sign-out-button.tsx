@@ -1,14 +1,18 @@
 "use client"
 
-import { SignOutButton } from "@clerk/nextjs"
+import { useClerk } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 
 export function SignOutButtonStyled() {
+  const { signOut } = useClerk()
+
   return (
-    <SignOutButton signOutOptions={{ redirectUrl: "/" }}>
-      <Button variant="outline" className="w-full">
-        Sign out
-      </Button>
-    </SignOutButton>
+    <Button
+      variant="outline"
+      className="w-full"
+      onClick={() => signOut({ redirectUrl: "/" })}
+    >
+      Sign out
+    </Button>
   )
 }
