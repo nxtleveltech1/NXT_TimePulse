@@ -222,13 +222,13 @@ export function WorkerClock({
                     type="button"
                     disabled={loading}
                     onClick={() => manualClockIn(a.projectId, null)}
-                    className="flex w-full flex-col items-center justify-center rounded-xl border min-h-[84px] py-4 px-3 transition-all duration-200 border-primary/20 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/40 disabled:opacity-50 disabled:pointer-events-none"
+                    className="flex w-full flex-col items-center justify-center rounded-xl border border-border bg-card min-h-[84px] py-4 px-3 transition-all duration-200 hover:bg-accent hover:border-border/80 disabled:opacity-50 disabled:pointer-events-none"
                   >
                     <div className="flex flex-col items-center gap-2">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15">
-                        <MapPin className="h-5 w-5" />
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+                        <MapPin className="h-5 w-5 text-primary" />
                       </span>
-                      <span className="text-sm font-semibold leading-tight text-center">
+                      <span className="text-sm font-semibold leading-tight text-center text-foreground">
                         {a.project.name}
                       </span>
                       {!a.project.isBillable && (
