@@ -3,7 +3,7 @@ import { clerkClient } from "@clerk/nextjs/server"
 import { type UserLifecycleStatus } from "@/generated/prisma"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
-import { requireCapability, requireAuth } from "@/lib/auth"
+import { requireCapability, requireAuth, isAdmin } from "@/lib/auth"
 import { userUpdateSchema } from "@/lib/schemas/user"
 import { createChangeRequest } from "@/lib/change-requests"
 import { logLifecycleEvent } from "@/lib/lifecycle"
@@ -108,7 +108,9 @@ export async function PATCH(
     roleOrder[role as keyof typeof roleOrder] < roleOrder[existing.role as keyof typeof roleOrder]
   const statusDowngrade =
     status !== undefined && ["suspended", "offboarded", "archived"].includes(status)
-  if (roleDowngrade || statusDowngrade) {
+
+  // Managers: downgrades go through maker-checker. Admins: apply immediately.
+  if ((roleDowngrade || statusDowngrade) && !isAdmin(access.orgRole)) {
     try {
       const requestRow = await createChangeRequest({
         orgId: org,
@@ -285,7 +287,65 @@ export async function DELETE(
     }
   }
 
-  // Active users or users with data: maker-checker offboard flow
+  // Admin: execute offboard directly (no approval needed)
+  if (isAdmin(access.orgRole)) {
+    try {
+      const effectiveDate = new Date()
+
+      await prisma.projectAssignment.updateMany({
+        where: { orgId: org, userId: id, status: { in: ["active", "paused"] } },
+        data: { status: "ended", endDate: effectiveDate, updatedById: userId },
+      })
+      await prisma.projectAllocation.updateMany({
+        where: { userId: id, project: { orgId: org } },
+        data: { isActive: false, endDate: effectiveDate },
+      })
+      await prisma.user.update({
+        where: { id },
+        data: { status: "offboarded", offboardedAt: effectiveDate },
+      })
+
+      const clerk = await clerkClient()
+      try {
+        await clerk.organizations.deleteOrganizationMembership({
+          organizationId: org,
+          userId: id,
+        })
+      } catch (e) {
+        console.warn("[users DELETE] Clerk membership removal failed:", e)
+      }
+      try {
+        await clerk.users.deleteUser(id)
+      } catch (e) {
+        console.warn("[users DELETE] Clerk user deletion failed:", e)
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          userId,
+          action: "user.offboarded",
+          entityType: "user",
+          entityId: id,
+          details: `User offboarded by admin: ${existing.email ?? id}`,
+        },
+      })
+      await logLifecycleEvent({
+        orgId: org,
+        userId: id,
+        actorUserId: userId,
+        eventType: "offboarded",
+        metadata: { reason: "Admin direct offboard", previousStatus: existing.status },
+      }).catch(() => {})
+
+      return NextResponse.json({ success: true, status: "removed" })
+    } catch (err) {
+      console.error("[users DELETE] Admin offboard failed:", err)
+      const message = err instanceof Error ? err.message : "Failed to offboard user"
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
+  }
+
+  // Manager: maker-checker offboard flow (requires admin approval)
   try {
     const requestRow = await createChangeRequest({
       orgId: org,

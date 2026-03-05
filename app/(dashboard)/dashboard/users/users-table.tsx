@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@clerk/nextjs"
 import Link from "next/link"
 import { MoreHorizontal, Pencil, UserMinus, Wallet } from "lucide-react"
 import { UserEditDialog } from "./user-edit-dialog"
@@ -44,6 +45,8 @@ export function UsersTable({
   currentUserId: string
   canManageComp: boolean
 }) {
+  const { orgRole } = useAuth()
+  const userIsAdmin = orgRole === "org:admin"
   const [editingUser, setEditingUser] = useState<UserWithCount | null>(null)
   const [removingUser, setRemovingUser] = useState<UserWithCount | null>(null)
 
@@ -157,7 +160,7 @@ export function UsersTable({
                   className="text-destructive focus:text-destructive"
                 >
                   <UserMinus className="mr-2 h-4 w-4" />
-                  Request offboard
+                  Remove user
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -188,6 +191,7 @@ export function UsersTable({
           user={removingUser}
           open={!!removingUser}
           onOpenChange={(open) => !open && setRemovingUser(null)}
+          isAdmin={userIsAdmin}
         />
       )}
     </>

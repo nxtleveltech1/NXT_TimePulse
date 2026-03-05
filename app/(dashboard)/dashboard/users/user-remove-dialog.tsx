@@ -28,16 +28,17 @@ type UserRemoveDialogProps = {
   user: UserWithCount
   open: boolean
   onOpenChange: (open: boolean) => void
+  isAdmin: boolean
 }
 
-export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogProps) {
+export function UserRemoveDialog({ user, open, onOpenChange, isAdmin }: UserRemoveDialogProps) {
   const router = useRouter()
   const [removing, setRemoving] = useState(false)
 
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email || user.id
-  const isImmediate = user.status === "invited" || user.status === "suspended"
-  const hasData = user._count.timesheets > 0 || user._count.allocations > 0
-  const willBeImmediate = isImmediate && !hasData
+  const hasTimesheets = user._count.timesheets > 0
+  const hasAllocations = user._count.allocations > 0
+  const hasData = hasTimesheets || hasAllocations
 
   async function handleRemove() {
     setRemoving(true)
@@ -47,12 +48,10 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
       if (!res.ok) {
         throw new Error(data.error ?? "Failed to remove user")
       }
-      if (data?.status === "removed") {
-        toast.success(`${displayName} removed from organization`)
-      } else if (data?.status === "pending_approval") {
-        toast.success(`${displayName} offboarding submitted for approval`)
+      if (data?.status === "pending_approval") {
+        toast.success(`${displayName} removal submitted for approval`)
       } else {
-        toast.success(`${displayName} removed`)
+        toast.success(`${displayName} removed from organization`)
       }
       onOpenChange(false)
       router.refresh()
@@ -63,18 +62,32 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
     }
   }
 
+  const title = isAdmin ? "Remove user" : hasData ? "Request user removal" : "Remove user"
+
+  let description: string
+  if (isAdmin) {
+    const parts: string[] = []
+    if (hasTimesheets) parts.push(`${user._count.timesheets} timesheet${user._count.timesheets !== 1 ? "s" : ""}`)
+    if (hasAllocations) parts.push(`${user._count.allocations} allocation${user._count.allocations !== 1 ? "s" : ""}`)
+    description = hasData
+      ? `This will immediately remove ${displayName} from the organization. They have ${parts.join(" and ")} — all active assignments will be ended and access revoked.`
+      : `This will immediately remove ${displayName} from the organization and revoke all access.`
+  } else {
+    description = hasData
+      ? `Submit a removal request for ${displayName}. An admin must approve before access is revoked.`
+      : `Remove ${displayName} from the organization? This will delete their account immediately.`
+  }
+
+  const buttonLabel = isAdmin
+    ? removing ? "Removing…" : "Remove user"
+    : removing ? "Submitting…" : hasData ? "Submit request" : "Remove now"
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {willBeImmediate ? "Remove user" : "Request offboarding"}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {willBeImmediate
-              ? `Remove ${displayName} from the organization? This will delete their account immediately.`
-              : `Submit offboarding for ${displayName}? A second admin must approve before access is revoked.`}
-          </AlertDialogDescription>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
@@ -86,7 +99,7 @@ export function UserRemoveDialog({ user, open, onOpenChange }: UserRemoveDialogP
             disabled={removing}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            {removing ? "Removing…" : willBeImmediate ? "Remove now" : "Request offboard"}
+            {buttonLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
