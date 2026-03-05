@@ -5,13 +5,16 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:notifications@timepulse.app"
 
+const TAG = "[web-push]"
+
 let configured = false
 function ensureConfigured() {
   if (configured) return true
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-    if (process.env.NODE_ENV === "development") {
-      console.log("[web-push] VAPID keys not configured, skipping push")
-    }
+    console.warn(
+      `${TAG} VAPID keys not configured — push notifications will not be sent. ` +
+        "Set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars."
+    )
     return false
   }
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
@@ -29,14 +32,17 @@ interface PushPayload {
 export async function sendPushToUser(
   userId: string,
   payload: PushPayload
-): Promise<void> {
-  if (!ensureConfigured()) return
+): Promise<{ sent: number; failed: number; stale: number }> {
+  if (!ensureConfigured()) return { sent: 0, failed: 0, stale: 0 }
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { userId },
   })
 
-  if (subscriptions.length === 0) return
+  if (subscriptions.length === 0) {
+    console.log(`${TAG} userId=${userId} — no push subscriptions registered`)
+    return { sent: 0, failed: 0, stale: 0 }
+  }
 
   const pushPayload = JSON.stringify({
     title: payload.title,
@@ -46,6 +52,8 @@ export async function sendPushToUser(
   })
 
   const stale: string[] = []
+  let sent = 0
+  let failed = 0
 
   await Promise.allSettled(
     subscriptions.map(async (sub) => {
@@ -57,12 +65,14 @@ export async function sendPushToUser(
           },
           pushPayload
         )
+        sent++
       } catch (err) {
         const statusCode = (err as { statusCode?: number })?.statusCode
         if (statusCode === 404 || statusCode === 410) {
           stale.push(sub.id)
         } else {
-          console.error(`[web-push] Failed to send to ${sub.endpoint}:`, err)
+          failed++
+          console.error(`${TAG} Failed to send to ${sub.endpoint}:`, err)
         }
       }
     })
@@ -72,5 +82,12 @@ export async function sendPushToUser(
     await prisma.pushSubscription.deleteMany({
       where: { id: { in: stale } },
     })
+    console.log(`${TAG} userId=${userId} — cleaned ${stale.length} stale subscription(s)`)
   }
+
+  console.log(
+    `${TAG} userId=${userId} — ${sent} sent, ${failed} failed, ${stale.length} stale (of ${subscriptions.length} sub(s))`
+  )
+
+  return { sent, failed, stale: stale.length }
 }

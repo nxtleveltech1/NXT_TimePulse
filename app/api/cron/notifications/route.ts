@@ -6,21 +6,47 @@ import { sendPushToUser } from "@/lib/web-push"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+const TAG = "[cron/notifications]"
+
 export async function GET(req: Request) {
+  const start = Date.now()
+  const utcNow = new Date()
+  console.log(
+    `${TAG} Cron fired — UTC: ${utcNow.toISOString()}, hour: ${utcNow.getUTCHours()}`
+  )
+
+  if (!process.env.CRON_SECRET) {
+    console.error(`${TAG} CRON_SECRET env var is not set — aborting`)
+    return NextResponse.json(
+      { error: "Server misconfigured" },
+      { status: 500 }
+    )
+  }
+
   const authHeader = req.headers.get("authorization")
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    console.warn(`${TAG} Unauthorized request — invalid or missing bearer token`)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const orgs = await prisma.organization.findMany({
-    select: { id: true, settings: true },
+    select: { id: true, name: true, settings: true },
   })
 
+  console.log(`${TAG} Found ${orgs.length} org(s)`)
+
   let totalCreated = 0
+  let totalPushSent = 0
+  const orgResults: Record<string, { created: number; pushed: number; skipped: string | null }> = {}
 
   for (const org of orgs) {
     const settings = await getNotificationSettings(org.id)
-    if (!settings.enabled) continue
+
+    if (!settings.enabled) {
+      console.log(`${TAG} [${org.name}] notifications disabled — skipping`)
+      orgResults[org.name ?? org.id] = { created: 0, pushed: 0, skipped: "disabled" }
+      continue
+    }
 
     const now = new Date(
       new Date().toLocaleString("en-US", { timeZone: settings.timezone })
@@ -28,6 +54,10 @@ export async function GET(req: Request) {
     const currentHour = now.getHours()
     const currentDay = now.getDay()
     const todayStr = formatDate(now)
+
+    console.log(
+      `${TAG} [${org.name}] tz=${settings.timezone} localHour=${currentHour} day=${currentDay} date=${todayStr}`
+    )
 
     const clockInHour = parseInt(settings.clockInTime.split(":")[0], 10)
     const clockOutHour = parseInt(settings.clockOutTime.split(":")[0], 10)
@@ -38,9 +68,18 @@ export async function GET(req: Request) {
       select: { id: true, firstName: true },
     })
 
-    if (activeUsers.length === 0) continue
+    if (activeUsers.length === 0) {
+      console.log(`${TAG} [${org.name}] no active users — skipping`)
+      orgResults[org.name ?? org.id] = { created: 0, pushed: 0, skipped: "no_users" }
+      continue
+    }
 
-    // Weekday clock-in reminder (morning hours)
+    console.log(`${TAG} [${org.name}] ${activeUsers.length} active user(s)`)
+
+    let orgCreated = 0
+    let orgPushed = 0
+
+    // ── Weekday clock-in reminder (morning hours) ──
     if (
       currentDay >= 1 &&
       currentDay <= 5 &&
@@ -56,10 +95,13 @@ export async function GET(req: Request) {
         distinct: ["userId"],
       })
       const clockedInIds = new Set(usersWithTimesheetToday.map((t) => t.userId))
+      const needsReminder = activeUsers.filter((u) => !clockedInIds.has(u.id))
 
-      for (const user of activeUsers) {
-        if (clockedInIds.has(user.id)) continue
+      console.log(
+        `${TAG} [${org.name}] clock-in: ${clockedInIds.size} clocked in, ${needsReminder.length} need reminder`
+      )
 
+      for (const user of needsReminder) {
         const existing = await prisma.notification.findFirst({
           where: {
             userId: user.id,
@@ -76,6 +118,7 @@ export async function GET(req: Request) {
             body: "You haven't clocked in yet today.",
             url: "/dashboard/timesheets",
           })
+          orgPushed++
           continue
         }
 
@@ -90,17 +133,18 @@ export async function GET(req: Request) {
             href: "/dashboard/timesheets",
           },
         })
-        totalCreated++
+        orgCreated++
 
         await sendPushToUser(user.id, {
           title: "Clock In Reminder",
           body: "You haven't clocked in yet today.",
           url: "/dashboard/timesheets",
         })
+        orgPushed++
       }
     }
 
-    // Weekday clock-out reminder (evening hours)
+    // ── Weekday clock-out reminder (evening hours) ──
     if (
       currentDay >= 1 &&
       currentDay <= 5 &&
@@ -116,10 +160,13 @@ export async function GET(req: Request) {
         distinct: ["userId"],
       })
       const openUserIds = new Set(openTimesheets.map((t) => t.userId))
+      const stillClockedIn = activeUsers.filter((u) => openUserIds.has(u.id))
 
-      for (const user of activeUsers) {
-        if (!openUserIds.has(user.id)) continue
+      console.log(
+        `${TAG} [${org.name}] clock-out: ${openUserIds.size} still clocked in`
+      )
 
+      for (const user of stillClockedIn) {
         const existing = await prisma.notification.findFirst({
           where: {
             userId: user.id,
@@ -136,6 +183,7 @@ export async function GET(req: Request) {
             body: "You're still clocked in. Don't forget to clock out.",
             url: "/dashboard/timesheets",
           })
+          orgPushed++
           continue
         }
 
@@ -151,17 +199,18 @@ export async function GET(req: Request) {
             href: "/dashboard/timesheets",
           },
         })
-        totalCreated++
+        orgCreated++
 
         await sendPushToUser(user.id, {
           title: "Clock Out Reminder",
           body: "You're still clocked in. Don't forget to clock out.",
           url: "/dashboard/timesheets",
         })
+        orgPushed++
       }
     }
 
-    // Weekly timesheet submission reminder (configured day, e.g. Saturday)
+    // ── Weekly timesheet submission reminder ──
     if (currentDay === settings.timesheetSubmitDay && currentHour >= submitHour) {
       const weekStart = getWeekStart(now)
       const weekEnd = todayStr
@@ -176,10 +225,13 @@ export async function GET(req: Request) {
         distinct: ["userId"],
       })
       const pendingUserIds = new Set(usersWithPending.map((t) => t.userId))
+      const needsSubmit = activeUsers.filter((u) => pendingUserIds.has(u.id))
 
-      for (const user of activeUsers) {
-        if (!pendingUserIds.has(user.id)) continue
+      console.log(
+        `${TAG} [${org.name}] timesheet-submit: ${pendingUserIds.size} with pending timesheets`
+      )
 
+      for (const user of needsSubmit) {
         const weekStartDate = new Date(weekStart + "T00:00:00")
         const existing = await prisma.notification.findFirst({
           where: {
@@ -197,6 +249,7 @@ export async function GET(req: Request) {
             body: "You have pending timesheets for this week.",
             url: "/dashboard/timesheets",
           })
+          orgPushed++
           continue
         }
 
@@ -212,18 +265,38 @@ export async function GET(req: Request) {
             href: "/dashboard/timesheets",
           },
         })
-        totalCreated++
+        orgCreated++
 
         await sendPushToUser(user.id, {
           title: "Submit Timesheets",
           body: "You have pending timesheets for this week.",
           url: "/dashboard/timesheets",
         })
+        orgPushed++
       }
     }
+
+    totalCreated += orgCreated
+    totalPushSent += orgPushed
+    orgResults[org.name ?? org.id] = { created: orgCreated, pushed: orgPushed, skipped: null }
+
+    console.log(
+      `${TAG} [${org.name}] done — ${orgCreated} created, ${orgPushed} push attempts`
+    )
   }
 
-  return NextResponse.json({ ok: true, created: totalCreated })
+  const elapsed = Date.now() - start
+  console.log(
+    `${TAG} Complete — ${totalCreated} notifications created, ${totalPushSent} push attempts, ${elapsed}ms`
+  )
+
+  return NextResponse.json({
+    ok: true,
+    created: totalCreated,
+    pushed: totalPushSent,
+    orgs: orgResults,
+    elapsed,
+  })
 }
 
 function formatDate(d: Date): string {
