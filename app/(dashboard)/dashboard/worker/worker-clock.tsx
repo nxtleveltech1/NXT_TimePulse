@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
-import { MapPin, RotateCcw, LogOut, Timer } from "lucide-react"
+import { MapPin, RotateCcw, LogOut, Timer, Play } from "lucide-react"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { LiveTimer } from "@/components/time-capture/live-timer"
@@ -171,8 +171,8 @@ export function WorkerClock({
         </div>
       ) : (
         /* ── CLOCKED OUT STATE ── */
-        <div className="flex flex-col gap-6">
-          {/* Header row */}
+        <div className="flex flex-col gap-8">
+          {/* Header */}
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
               <Timer className="h-5 w-5 text-muted-foreground" />
@@ -185,58 +185,62 @@ export function WorkerClock({
 
           {/* Resume last project */}
           {lastTimesheet && (
-            <Button
-              variant="secondary"
-              size="lg"
-              className="w-full min-h-[56px] gap-2 text-base font-semibold justify-start px-5"
+            <button
+              type="button"
               disabled={loading}
               onClick={() => manualClockIn(lastTimesheet.projectId, null)}
+              className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:border-primary/30 hover:shadow-md disabled:opacity-50 disabled:pointer-events-none"
             >
-              <RotateCcw className="h-5 w-5 shrink-0" />
-              <span>
-                Resume <span className="font-bold">{lastTimesheet.project.name}</span>
-              </span>
-            </Button>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-transform duration-200 group-hover:scale-105">
+                <RotateCcw className="h-5 w-5" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resume last session</p>
+                <p className="text-sm font-bold">{lastTimesheet.project.name}</p>
+              </div>
+              <Play className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+            </button>
           )}
 
-          {/* Project label */}
-          <p className="text-sm font-medium text-muted-foreground">Clock in with a project</p>
+          {/* Divider + label */}
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">or choose a project</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
 
-          {/* Project buttons */}
+          {/* Project cards */}
           {allocations.length === 0 ? (
-            <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-4 text-center">
+            <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-6 text-center">
               No project allocations. Contact your manager.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {allocations.map((a, i) => (
                 <motion.div
                   key={a.id}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: i * 0.05, ease: "easeOut" }}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   <button
                     type="button"
                     disabled={loading}
                     onClick={() => manualClockIn(a.projectId, null)}
-                    className="flex w-full flex-col items-center justify-center rounded-xl border border-border bg-card min-h-[84px] py-4 px-3 transition-all duration-200 hover:bg-accent hover:border-border/80 disabled:opacity-50 disabled:pointer-events-none"
+                    className="group flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 transition-all duration-200 hover:border-primary/30 hover:shadow-md disabled:opacity-50 disabled:pointer-events-none"
                   >
-                    <div className="flex flex-col items-center gap-2">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-                        <MapPin className="h-5 w-5 text-primary" />
-                      </span>
-                      <span className="text-sm font-semibold leading-tight text-center text-foreground">
-                        {a.project.name}
-                      </span>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors duration-200 group-hover:bg-primary/10">
+                      <MapPin className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-primary" />
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-semibold truncate">{a.project.name}</p>
                       {!a.project.isBillable && (
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                          Non-billable
-                        </span>
+                        <p className="text-xs text-muted-foreground mt-0.5">Non-billable</p>
                       )}
                     </div>
+                    <Play className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-primary" />
                   </button>
                 </motion.div>
               ))}
