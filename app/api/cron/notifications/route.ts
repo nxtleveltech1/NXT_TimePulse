@@ -2,6 +2,12 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getNotificationSettings } from "@/lib/notification-settings"
 import { sendPushToUser } from "@/lib/web-push"
+import {
+  sendEmail,
+  clockInEmail,
+  clockOutEmail,
+  timesheetSubmitEmail,
+} from "@/lib/email"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -35,16 +41,20 @@ export async function GET(req: Request) {
 
   console.log(`${TAG} Found ${orgs.length} org(s)`)
 
+  const BASE_URL =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://timepulse.nxtdotx.online"
+
   let totalCreated = 0
   let totalPushSent = 0
-  const orgResults: Record<string, { created: number; pushed: number; skipped: string | null }> = {}
+  let totalEmailed = 0
+  const orgResults: Record<string, { created: number; pushed: number; emailed: number; skipped: string | null }> = {}
 
   for (const org of orgs) {
     const settings = await getNotificationSettings(org.id)
 
     if (!settings.enabled) {
       console.log(`${TAG} [${org.name}] notifications disabled — skipping`)
-      orgResults[org.name ?? org.id] = { created: 0, pushed: 0, skipped: "disabled" }
+      orgResults[org.name ?? org.id] = { created: 0, pushed: 0, emailed: 0, skipped: "disabled" }
       continue
     }
 
@@ -65,12 +75,12 @@ export async function GET(req: Request) {
 
     const activeUsers = await prisma.user.findMany({
       where: { orgId: org.id, status: "active" },
-      select: { id: true, firstName: true },
+      select: { id: true, firstName: true, email: true },
     })
 
     if (activeUsers.length === 0) {
       console.log(`${TAG} [${org.name}] no active users — skipping`)
-      orgResults[org.name ?? org.id] = { created: 0, pushed: 0, skipped: "no_users" }
+      orgResults[org.name ?? org.id] = { created: 0, pushed: 0, emailed: 0, skipped: "no_users" }
       continue
     }
 
@@ -78,6 +88,7 @@ export async function GET(req: Request) {
 
     let orgCreated = 0
     let orgPushed = 0
+    let orgEmailed = 0
 
     // ── Weekday clock-in reminder (morning hours) ──
     if (
@@ -141,6 +152,12 @@ export async function GET(req: Request) {
           url: "/dashboard/timesheets",
         })
         orgPushed++
+
+        if (user.email) {
+          const email = clockInEmail(user.firstName ?? "", BASE_URL)
+          const { sent } = await sendEmail({ ...email, to: user.email })
+          if (sent) orgEmailed++
+        }
       }
     }
 
@@ -207,6 +224,12 @@ export async function GET(req: Request) {
           url: "/dashboard/timesheets",
         })
         orgPushed++
+
+        if (user.email) {
+          const email = clockOutEmail(user.firstName ?? "", BASE_URL)
+          const { sent } = await sendEmail({ ...email, to: user.email })
+          if (sent) orgEmailed++
+        }
       }
     }
 
@@ -273,27 +296,35 @@ export async function GET(req: Request) {
           url: "/dashboard/timesheets",
         })
         orgPushed++
+
+        if (user.email) {
+          const email = timesheetSubmitEmail(user.firstName ?? "", BASE_URL)
+          const { sent } = await sendEmail({ ...email, to: user.email })
+          if (sent) orgEmailed++
+        }
       }
     }
 
     totalCreated += orgCreated
     totalPushSent += orgPushed
-    orgResults[org.name ?? org.id] = { created: orgCreated, pushed: orgPushed, skipped: null }
+    totalEmailed += orgEmailed
+    orgResults[org.name ?? org.id] = { created: orgCreated, pushed: orgPushed, emailed: orgEmailed, skipped: null }
 
     console.log(
-      `${TAG} [${org.name}] done — ${orgCreated} created, ${orgPushed} push attempts`
+      `${TAG} [${org.name}] done — ${orgCreated} created, ${orgPushed} push, ${orgEmailed} emails`
     )
   }
 
   const elapsed = Date.now() - start
   console.log(
-    `${TAG} Complete — ${totalCreated} notifications created, ${totalPushSent} push attempts, ${elapsed}ms`
+    `${TAG} Complete — ${totalCreated} created, ${totalPushSent} push, ${totalEmailed} emails, ${elapsed}ms`
   )
 
   return NextResponse.json({
     ok: true,
     created: totalCreated,
     pushed: totalPushSent,
+    emailed: totalEmailed,
     orgs: orgResults,
     elapsed,
   })
