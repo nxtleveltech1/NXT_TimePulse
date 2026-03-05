@@ -3,8 +3,8 @@
 import { useState, useCallback } from "react"
 import { useSignIn } from "@clerk/nextjs"
 import { Mail, Loader2, CheckCircle2 } from "lucide-react"
-import { motion } from "motion/react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export function ForgotPasswordForm() {
   const { signIn, isLoaded } = useSignIn()
@@ -56,26 +56,23 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="space-y-5">
-        <div className="flex flex-col items-center gap-3 py-4">
-          <div className="flex size-12 items-center justify-center rounded-full bg-success/10">
-            <CheckCircle2 className="size-6 text-success" />
+      <div className="space-y-6">
+        <div className="flex flex-col items-center gap-4 py-6">
+          <div className="flex size-14 items-center justify-center rounded-full bg-success/10">
+            <CheckCircle2 className="size-7 text-success" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-medium">Check your email</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-base font-semibold">Check your email</p>
+            <p className="mt-1.5 text-sm text-muted-foreground">
               We sent a reset code to{" "}
               <span className="font-medium text-foreground">{email}</span>
             </p>
           </div>
         </div>
 
-        <Link
-          href="/reset-password"
-          className="flex w-full items-center justify-center rounded-xl bg-primary py-4 text-base font-semibold text-primary-foreground"
-        >
-          Enter Reset Code
-        </Link>
+        <Button asChild size="lg" className="w-full">
+          <Link href="/reset-password">Enter Reset Code</Link>
+        </Button>
 
         <button
           type="button"
@@ -83,7 +80,7 @@ export function ForgotPasswordForm() {
             setSent(false)
             setEmail("")
           }}
-          className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground"
+          className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           Try a different email
         </button>
@@ -92,39 +89,42 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-lg bg-destructive/10 p-3">
+        <div className="rounded-lg bg-destructive/10 p-3.5">
           <p className="text-sm font-medium text-destructive">{error}</p>
         </div>
       )}
 
-      <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-        <Mail className="size-[18px] shrink-0 text-muted-foreground" />
-        <input
-          type="email"
-          placeholder="Email address"
-          autoComplete="email"
-          autoCapitalize="none"
-          autoFocus
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
-        />
+      <div>
+        <label className="mb-2 block text-sm font-medium">Email</label>
+        <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+          <Mail className="size-4 shrink-0 text-muted-foreground" />
+          <input
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            autoCapitalize="none"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
       </div>
 
-      <motion.button
+      <Button
         type="submit"
         disabled={loading || !email.trim()}
-        whileTap={{ scale: 0.97 }}
-        className="flex w-full items-center justify-center rounded-xl bg-primary py-4 text-base font-semibold text-primary-foreground disabled:opacity-70"
+        size="lg"
+        className="w-full"
       >
-        {loading ? <Loader2 className="size-5 animate-spin" /> : "Send Reset Code"}
-      </motion.button>
+        {loading ? <Loader2 className="size-4 animate-spin" /> : "Send Reset Code"}
+      </Button>
 
       <Link
         href="/sign-in"
-        className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground"
+        className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         Back to sign in
       </Link>

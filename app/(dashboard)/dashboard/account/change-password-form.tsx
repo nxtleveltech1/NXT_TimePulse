@@ -3,8 +3,8 @@
 import { useState, useCallback } from "react"
 import { useUser } from "@clerk/nextjs"
 import { Lock, Eye, EyeOff, Loader2 } from "lucide-react"
-import { motion } from "motion/react"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 
 export function ChangePasswordForm() {
   const { user, isLoaded } = useUser()
@@ -55,70 +55,78 @@ export function ChangePasswordForm() {
   )
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="max-w-xl space-y-8">
       <div>
-        <p className="mb-3 ml-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted-foreground">
           Change Password
-        </p>
-        <div className="space-y-3">
-          <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-            <Lock className="size-[18px] shrink-0 text-muted-foreground" />
-            <input
-              type={showPasswords ? "text" : "password"}
-              placeholder="Current password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
-            />
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-muted-foreground">
+              Current Password
+            </label>
+            <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+              <Lock className="size-4 shrink-0 text-muted-foreground" />
+              <input
+                type={showPasswords ? "text" : "password"}
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-            <Lock className="size-[18px] shrink-0 text-muted-foreground" />
-            <input
-              type={showPasswords ? "text" : "password"}
-              placeholder="New password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPasswords(!showPasswords)}
-              className="shrink-0 text-muted-foreground hover:text-foreground"
-              tabIndex={-1}
-            >
-              {showPasswords ? (
-                <EyeOff className="size-[18px]" />
-              ) : (
-                <Eye className="size-[18px]" />
-              )}
-            </button>
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-muted-foreground">
+              New Password
+            </label>
+            <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+              <Lock className="size-4 shrink-0 text-muted-foreground" />
+              <input
+                type={showPasswords ? "text" : "password"}
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPasswords(!showPasswords)}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showPasswords ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-            <Lock className="size-[18px] shrink-0 text-muted-foreground" />
-            <input
-              type={showPasswords ? "text" : "password"}
-              placeholder="Confirm new password"
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-transparent text-sm font-medium outline-none placeholder:text-muted-foreground"
-            />
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-muted-foreground">
+              Confirm New Password
+            </label>
+            <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+              <Lock className="size-4 shrink-0 text-muted-foreground" />
+              <input
+                type={showPasswords ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <motion.button
+      <Button
         type="submit"
-        whileTap={{ scale: 0.97 }}
         disabled={saving || !currentPassword || !newPassword || !confirmPassword}
-        className="flex w-full items-center justify-center rounded-xl bg-primary py-3.5 text-[15px] font-bold text-primary-foreground disabled:opacity-70"
+        size="lg"
+        className="min-w-[160px]"
       >
-        {saving ? <Loader2 className="size-5 animate-spin" /> : "Update Password"}
-      </motion.button>
+        {saving ? <Loader2 className="size-4 animate-spin" /> : "Update Password"}
+      </Button>
     </form>
   )
 }

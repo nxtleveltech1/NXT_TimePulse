@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Lock, Loader2 } from "lucide-react"
-import { motion } from "motion/react"
+import { Button } from "@/components/ui/button"
 
 interface MfaFormProps {
   error: string
@@ -21,42 +21,43 @@ export function MfaForm({ error, loading, onVerify, onBack }: MfaFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-lg bg-destructive/10 p-3">
+        <div className="rounded-lg bg-destructive/10 p-3.5">
           <p className="text-sm font-medium text-destructive">{error}</p>
         </div>
       )}
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-          <Lock className="size-[18px] shrink-0 text-muted-foreground" />
+      <div>
+        <label className="mb-2 block text-sm font-medium">Verification Code</label>
+        <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+          <Lock className="size-4 shrink-0 text-muted-foreground" />
           <input
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
-            placeholder="Verification code"
+            placeholder="Enter code"
             autoFocus
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>
       </div>
 
-      <motion.button
+      <Button
         type="submit"
         disabled={loading || !code.trim()}
-        whileTap={{ scale: 0.97 }}
-        className="flex w-full items-center justify-center rounded-xl bg-primary py-4 text-base font-semibold text-primary-foreground disabled:opacity-70"
+        size="lg"
+        className="w-full"
       >
-        {loading ? <Loader2 className="size-5 animate-spin" /> : "Verify"}
-      </motion.button>
+        {loading ? <Loader2 className="size-4 animate-spin" /> : "Verify"}
+      </Button>
 
       <button
         type="button"
         onClick={onBack}
-        className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground"
+        className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         Back to sign in
       </button>

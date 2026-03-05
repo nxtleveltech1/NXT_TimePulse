@@ -23,31 +23,25 @@ export function AccountPageClient({ dbUser }: AccountPageClientProps) {
   const [activeTab, setActiveTab] = useState("overview")
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-8">
       <ProfileHeader onEdit={() => setActiveTab("edit")} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full">
-          <TabsTrigger value="overview" className="flex-1">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="edit" className="flex-1">
-            Edit Profile
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex-1">
-            Security
-          </TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="edit">Edit Profile</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="mt-6">
+        <TabsContent value="overview" className="mt-8">
           <AccountInfoCard dbUser={dbUser} />
         </TabsContent>
 
-        <TabsContent value="edit" className="mt-6">
+        <TabsContent value="edit" className="mt-8">
           <AccountForm dbUser={dbUser} />
         </TabsContent>
 
-        <TabsContent value="security" className="mt-6">
+        <TabsContent value="security" className="mt-8">
           <ChangePasswordForm />
         </TabsContent>
       </Tabs>

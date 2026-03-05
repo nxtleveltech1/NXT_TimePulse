@@ -4,8 +4,8 @@ import { useState, useCallback } from "react"
 import { useSignIn } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { Lock, Eye, EyeOff, Loader2, KeyRound } from "lucide-react"
-import { motion } from "motion/react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export function ResetPasswordForm() {
   const { signIn, setActive, isLoaded } = useSignIn()
@@ -75,77 +75,80 @@ export function ResetPasswordForm() {
   )
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-lg bg-destructive/10 p-3">
+        <div className="rounded-lg bg-destructive/10 p-3.5">
           <p className="text-sm font-medium text-destructive">{error}</p>
         </div>
       )}
 
       <div className="space-y-3">
-        <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-          <KeyRound className="size-[18px] shrink-0 text-muted-foreground" />
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="Reset code"
-            autoFocus
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
-          />
+        <div>
+          <label className="mb-2 block text-sm font-medium">Reset Code</label>
+          <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+            <KeyRound className="size-4 shrink-0 text-muted-foreground" />
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="Enter code from email"
+              autoFocus
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-          <Lock className="size-[18px] shrink-0 text-muted-foreground" />
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="New password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-            tabIndex={-1}
-          >
-            {showPassword ? (
-              <EyeOff className="size-[18px]" />
-            ) : (
-              <Eye className="size-[18px]" />
-            )}
-          </button>
+        <div>
+          <label className="mb-2 block text-sm font-medium">New Password</label>
+          <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+            <Lock className="size-4 shrink-0 text-muted-foreground" />
+            <input
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-xl border bg-background px-3.5 py-3 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
-          <Lock className="size-[18px] shrink-0 text-muted-foreground" />
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Confirm new password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
-          />
+        <div>
+          <label className="mb-2 block text-sm font-medium">Confirm Password</label>
+          <div className="flex items-center gap-3 rounded-lg border bg-background px-4 h-11 focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
+            <Lock className="size-4 shrink-0 text-muted-foreground" />
+            <input
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            />
+          </div>
         </div>
       </div>
 
-      <motion.button
+      <Button
         type="submit"
         disabled={loading || !code.trim() || !password || !confirmPassword}
-        whileTap={{ scale: 0.97 }}
-        className="flex w-full items-center justify-center rounded-xl bg-primary py-4 text-base font-semibold text-primary-foreground disabled:opacity-70"
+        size="lg"
+        className="w-full"
       >
-        {loading ? <Loader2 className="size-5 animate-spin" /> : "Reset Password"}
-      </motion.button>
+        {loading ? <Loader2 className="size-4 animate-spin" /> : "Reset Password"}
+      </Button>
 
       <Link
         href="/sign-in"
-        className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground"
+        className="block w-full text-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         Back to sign in
       </Link>

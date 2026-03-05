@@ -11,20 +11,20 @@ interface AuthCardProps {
 
 export function AuthCard({ title, description, children, footer }: AuthCardProps) {
   return (
-    <div className="w-full max-w-md">
-      <div className="mb-8 flex flex-col items-center gap-2">
-        <BrandLogo height={48} className="brightness-0 invert" />
+    <div className="w-full max-w-[440px]">
+      <div className="mb-10 flex flex-col items-center gap-3">
+        <BrandLogo height={52} className="brightness-0 invert" />
         <p className="text-sm text-white/50">Workforce Time Management</p>
       </div>
 
-      <div className="rounded-[20px] bg-card p-6 shadow-xl">
-        <h1 className="text-2xl font-bold">{title}</h1>
-        <p className="mt-1 mb-6 text-sm text-muted-foreground">{description}</p>
+      <div className="rounded-2xl bg-card p-8 shadow-2xl">
+        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+        <p className="mt-1.5 mb-8 text-sm text-muted-foreground">{description}</p>
         {children}
       </div>
 
       {footer ?? (
-        <p className="mt-8 text-center text-xs text-white/35">
+        <p className="mt-10 text-center text-xs text-white/30">
           NXT Level Technologies &copy; {new Date().getFullYear()}
         </p>
       )}

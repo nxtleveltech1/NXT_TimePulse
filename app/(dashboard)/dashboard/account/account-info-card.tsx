@@ -7,32 +7,25 @@ import {
   Hash,
   Building2,
   DollarSign,
-  ChevronRight,
 } from "lucide-react"
 
 interface InfoRowProps {
   icon: React.ReactNode
   label: string
   value: string
-  action?: () => void
 }
 
-function InfoRow({ icon, label, value, action }: InfoRowProps) {
-  const Wrapper = action ? "button" : "div"
+function InfoRow({ icon, label, value }: InfoRowProps) {
   return (
-    <Wrapper
-      onClick={action}
-      className="flex items-center gap-2.5 px-3.5 py-3 w-full text-left hover:bg-muted/50 transition-colors"
-    >
-      <span className="text-muted-foreground">{icon}</span>
-      <span className="w-[90px] shrink-0 text-sm text-muted-foreground">
-        {label}
-      </span>
-      <span className="flex-1 text-right text-sm font-medium truncate">
-        {value}
-      </span>
-      {action && <ChevronRight className="size-4 text-muted-foreground" />}
-    </Wrapper>
+    <div className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-sm font-semibold truncate">{value}</p>
+      </div>
+    </div>
   )
 }
 
@@ -62,20 +55,26 @@ export function AccountInfoCard({ dbUser }: AccountInfoCardProps) {
       : "—"
 
   return (
-    <div>
-      <p className="mb-2 ml-0.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        Account
-      </p>
-      <div className="overflow-hidden rounded-[14px] border">
-        <InfoRow icon={<Mail className="size-3.5" />} label="Email" value={email} />
-        <div className="ml-[38px] border-b" />
-        <InfoRow icon={<Phone className="size-3.5" />} label="Phone" value={phone} />
-        <div className="ml-[38px] border-b" />
-        <InfoRow icon={<Hash className="size-3.5" />} label="Employee ID" value={employeeId} />
-        <div className="ml-[38px] border-b" />
-        <InfoRow icon={<Building2 className="size-3.5" />} label="Type" value={empType} />
-        <div className="ml-[38px] border-b" />
-        <InfoRow icon={<DollarSign className="size-3.5" />} label="Base Rate" value={baseRate} />
+    <div className="space-y-8">
+      <div>
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+          Contact
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InfoRow icon={<Mail className="size-4 text-muted-foreground" />} label="Email" value={email} />
+          <InfoRow icon={<Phone className="size-4 text-muted-foreground" />} label="Phone" value={phone} />
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+          Employment
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <InfoRow icon={<Hash className="size-4 text-muted-foreground" />} label="Employee ID" value={employeeId} />
+          <InfoRow icon={<Building2 className="size-4 text-muted-foreground" />} label="Type" value={empType} />
+          <InfoRow icon={<DollarSign className="size-4 text-muted-foreground" />} label="Base Rate" value={baseRate} />
+        </div>
       </div>
     </div>
   )
