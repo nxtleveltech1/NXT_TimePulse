@@ -21,8 +21,10 @@ export type ChangeRequestRow = {
 }
 
 export function ApprovalsContent({
+  currentUserId,
   initialRequests,
 }: {
+  currentUserId: string
   initialRequests: ChangeRequestRow[]
 }) {
   const [requests, setRequests] = useState(initialRequests)
@@ -93,23 +95,29 @@ export function ApprovalsContent({
                 <p className="text-xs text-amber-700 dark:text-amber-400">{r.criticalReason}</p>
               )}
             </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busyId === r.id}
-                onClick={() => reject(r.id)}
-              >
-                Reject
-              </Button>
-              <Button
-                size="sm"
-                disabled={busyId === r.id}
-                onClick={() => approve(r.id)}
-              >
-                Approve
-              </Button>
-            </div>
+            {r.requestedBy.id === currentUserId ? (
+              <span className="text-sm text-muted-foreground">
+                Awaiting review by another admin
+              </span>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busyId === r.id}
+                  onClick={() => reject(r.id)}
+                >
+                  Reject
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={busyId === r.id}
+                  onClick={() => approve(r.id)}
+                >
+                  Approve
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       ))}

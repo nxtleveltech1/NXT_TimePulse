@@ -5,7 +5,7 @@ import { serializeForClient } from "@/lib/serialize"
 import { ApprovalsContent, type ChangeRequestRow } from "./approvals-content"
 
 export default async function ApprovalsPage() {
-  const { orgId, orgRole } = await auth()
+  const { userId, orgId, orgRole } = await auth()
   if (orgRole !== "org:admin") {
     return (
       <div className="space-y-6">
@@ -44,7 +44,7 @@ export default async function ApprovalsPage() {
           <CardDescription>{requests.length} request(s) awaiting review</CardDescription>
         </CardHeader>
         <CardContent>
-          <ApprovalsContent initialRequests={serializeForClient(requests) as unknown as ChangeRequestRow[]} />
+          <ApprovalsContent currentUserId={userId!} initialRequests={serializeForClient(requests) as unknown as ChangeRequestRow[]} />
         </CardContent>
       </Card>
     </div>
